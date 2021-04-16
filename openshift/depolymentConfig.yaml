@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "umb-psi-pipelines-robot-config"
+  labels:
+    template: umb-template
+data:
+  config.yaml: |-
+    amq:
+      url:
+        - amqps://messaging-devops-broker01.web.prod.ext.phx2.redhat.com:5671
+        - amqps://messaging-devops-broker02.web.prod.ext.phx2.redhat.com:5671
+      certificate: /etc/umb-certs/cert.crt
+      private_key: /etc/umb-certs/cert.key
+      consumer: Consumer.psi-pipelines-robot.openshift-pipelines
+      topic: 'VirtualTopic.eng.ci.redhat-container-image.index.built.>'
+      selector: 'artifact.nvr,openshift-pipelines-operator-bundle-container'
+      el_url: 'http://my-eventlsisterner.com'
+---
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  name: "umb-psi-pipelines-robot-config"
+  labels:
+    template: umb-template
+    app: umb
+spec:
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      minReadySeconds: 600
+  template:
+    metadata:
+      name: "umb-psi-pipelines-robot-config"
+      labels:
+        app: umb
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: umb-listener
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 100m
+              memory: 500Mi
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: CONFIG_FILE
+              value: /etc/umb/config.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/umb
+            - name: umb-certs
+              mountPath: /etc/umb-certs
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: "umb-psi-pipelines-robot-config"
+        - name: umb-certs
+          secret:
+            defaultMode: 420
+            secretName: umb-certs
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - umb-listener
+        from:
+          kind: ImageStreamTag
+          name: umb:latest

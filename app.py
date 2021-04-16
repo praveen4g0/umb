@@ -9,14 +9,14 @@ import logging
 from flask import Flask
 import os
 import socket
+from os.path import dirname, join
+import requests
+from requests import ReadTimeout, ConnectTimeout, HTTPError, Timeout, ConnectionError
+import yaml
 
 hostname = socket.gethostname()
 
 app = Flask(__name__)
-
-from os.path import dirname, join
-import logging
-import yaml
 
 DEFAULT_CONFIG_PATH = join(dirname(__file__),
                            "config", "config.yaml")
@@ -33,34 +33,15 @@ class ConfigurationManager(object):
     def _get_config(self):
         return self._config
 
-    def _get_kafka_config(self):
-        return self._get_config().get('kafka', dict())
-
     def _get_umb_config(self):
         key = 'umb' if 'umb' in self._config else 'amq'
         return self._get_config().get(key, dict())
-
-    @property
-    def producer_enabled(self):
-        return self._get_kafka_config().get('enabled', True)
-
-    def get_kafka_topic(self):
-        return self._get_kafka_config().get('topic')
 
     def get_eventlistener(self):
         return self._get_umb_config().get('el_url')
 
     def get_selector(self):
-        return self._get_umb_config().get('selector')    
-
-    def get_producert_testComplete_kafka_topic(self):
-        return self._get_umb_config().get('prodcuer_test_complete_topic')
-
-    def get_producert_testError_kafka_topic(self):
-        return self._get_umb_config().get('producer_test_error_topic')    
-
-    def get_kafka_broker(self):
-        return self._get_kafka_config().get('url')
+        return self._get_umb_config().get('selector') 
 
     def get_umb_topic(self):
         return self._get_umb_config().get('topic')
@@ -113,8 +94,15 @@ class consumerProcessEvent(object):
                 match = jsonpath_expr.find(normalized)
                 if str(match[0].value).find(expected_val) != -1:
                     self._logger.info("Recived Message to process... ")
-                    self._logger.info(normalized)
+                    self._logger.info(type(normalized))
                     self._logger.info("We are sending processed messages to eventlisteners {0} ".format(self.el))
+                    headers = { 'content-type': 'application/json' }
+                    try:
+                        res = requests.post(self.el,data=json.dumps(normalized),headers=headers)
+                        self._logger.info(res.content)   
+                    except (ConnectTimeout, HTTPError, ReadTimeout, Timeout, ConnectionError) as e:
+                        self._logger.info("Ahh, something went wrong! Check sink-url {0} health status".format(self.el))
+                        self._logger.error(str(e),exc_info=True)
                 else:
                     self._logger.info("message didn't pass filter check.")
                     self._logger.info(normalized)
@@ -170,7 +158,7 @@ def setup_logging(verbose):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default=None)
+    parser.add_argument("-c", "--config", default=os.environ.get('CONFIG_FILE',None))
     parser.add_argument("-v", "--verbose", action='store_true')
     return parser.parse_args()
 
@@ -185,7 +173,6 @@ class UmbConsumerService(object):
         try:
             self.container.run()
         except KeyboardInterrupt: pass
-
 
 def Consumerstart():
     UmbConsumerService(ConfigurationManager(cfg_path=args.config)).start()
