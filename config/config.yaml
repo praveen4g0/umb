@@ -13,4 +13,4 @@ amq:
   selector: 'artifact.nvr,openshift-pipelines-operator-bundle-container'
   el_url: 'http://my-eventlsisterner.com'
   producer_test_complete_topic: 'topic://VirtualTopic.qe.ci.product-scenario.test.complete'
-  producer_test_error_topic: 'topic://VirtualTopic.qe.ci.product-scenario.test.error' 
+  producer_test_error_topic: 'topic://VirtualTopic.qe.ci.product-scenario.test.error'
