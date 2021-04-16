@@ -1,0 +1,16 @@
+kafka:
+  url: one-kafka.dh-stage-message-bus.svc.cluster.local:9092
+  topic: gfrasca-test
+  enabled: False
+amq:
+  url:
+    - amqps://messaging-devops-broker01.web.prod.ext.phx2.redhat.com:5671
+    - amqps://messaging-devops-broker02.web.prod.ext.phx2.redhat.com:5671
+  certificate: config/psi-pipelines-robot.crt
+  private_key: config/psi-pipelines-robot.key
+  consumer: Consumer.psi-pipelines-robot.openshift-pipelines
+  topic: 'VirtualTopic.eng.ci.redhat-container-image.index.built.>'
+  selector: 'artifact.nvr,openshift-pipelines-operator-bundle-container'
+  el_url: 'http://my-eventlsisterner.com'
+  producer_test_complete_topic: 'topic://VirtualTopic.qe.ci.product-scenario.test.complete'
+  producer_test_error_topic: 'topic://VirtualTopic.qe.ci.product-scenario.test.error' 
