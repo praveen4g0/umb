@@ -1,0 +1,2 @@
+config/psi-pipelines-robot.crt filter=git-crypt diff=git-crypt
+config/psi-pipelines-robot.key filter=git-crypt diff=git-crypt
