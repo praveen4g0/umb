@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "umb-psi-pipelines-robot-config"
+  labels:
+    template: umb-template
+data:
+  config.yaml: |-
+    amq:
+      url:
+        - amqps://messaging-devops-broker01.web.prod.ext.phx2.redhat.com:5671
+        - amqps://messaging-devops-broker02.web.prod.ext.phx2.redhat.com:5671
+      certificate: /etc/umb-certs/cert.crt
+      private_key: /etc/umb-certs/cert.key
+      consumer: Consumer.psi-pipelines-robot.openshift-pipelines
+      topic: 'VirtualTopic.eng.ci.redhat-container-image.index.built.>'
+      selector: 'artifact.nvr,openshift-pipelines-operator-bundle-container'
+      el_url: 'http://my-eventlsisterner.com'

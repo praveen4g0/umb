@@ -1,12 +1,14 @@
 import argparse
 import threading
+import concurrent.futures.thread
+from concurrent.futures import ThreadPoolExecutor
 from proton.handlers import MessagingHandler
 from proton.reactor import Container, Selector
 from proton import SSLDomain
 import json
 from jsonpath_rw import jsonpath, parse
 import logging
-from flask import Flask
+from flask import Flask,jsonify
 import os
 import socket
 from os.path import dirname, join
@@ -174,20 +176,33 @@ class UmbConsumerService(object):
             self.container.run()
         except KeyboardInterrupt: pass
 
-def Consumerstart():
+def consumerStart():
     UmbConsumerService(ConfigurationManager(cfg_path=args.config)).start()
 
 @app.route("/")
 def hello():
-    return json.dumps({"Message": "Hello World!"})
+    return jsonify({"Message": "Hello World!"}),200
 
 @app.route("/consume")
-def startConsumer():
-    t = threading.Thread(target=Consumerstart)
-    t.start()
-    return json.dumps({"Message": "Consumer Registered successfully!"})
+def startConsumerService():
+    try:
+       executor.submit(consumerStart)
+       return jsonify({"Message": "Consumer Registered successfully!"}),200
+    except KeyboardInterrupt:
+        executor._threads.clear()
+        concurrent.futures.thread._threads_queues.clear()     
+    except Exception as e:
+            print(e)   
+            return jsonify({"Error": e}),401
+
+@app.route("/stop")            
+def stopConsumerService():
+    executor._threads.clear()
+    concurrent.futures.thread._threads_queues.clear()
+    return jsonify({"Message": "Stopped Consumer service gracefully!"}),200
 
 if __name__ == "__main__":
     args = parse_args()
     setup_logging(args.verbose)
+    executor=ThreadPoolExecutor(max_workers=3)
     app.run(host='0.0.0.0', port=8080, debug=True)

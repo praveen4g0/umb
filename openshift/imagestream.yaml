@@ -1,0 +1,9 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: umb
+  annotations:
+    description: The umb listener image
+  labels:
+    template: umb-template
+    app: umb
