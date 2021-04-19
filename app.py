@@ -260,18 +260,6 @@ def prodcueUMBMessage():
     else:
       abort(400)
 
-@app.route("/consume")
-def startConsumerService():
-    try:
-       executor.submit(consumerStart)
-       return jsonify({"Message": "Consumer Registered successfully!"}),200
-    except KeyboardInterrupt:
-        executor._threads.clear()
-        concurrent.futures.thread._threads_queues.clear()     
-    except Exception as e:
-            print(e)   
-            return jsonify({"Error": e}),401
-
 @app.route("/stop")            
 def stopConsumerService():
     executor._threads.clear()
@@ -282,4 +270,12 @@ if __name__ == "__main__":
     args = parse_args()
     setup_logging(args.verbose)
     executor=ThreadPoolExecutor(max_workers=3)
+    try:
+       executor.submit(consumerStart)
+       print(jsonify({"Message": "Consumer Registered successfully!"}))
+    except KeyboardInterrupt:
+        executor._threads.clear()
+        concurrent.futures.thread._threads_queues.clear()     
+    except Exception as e:
+            print(e)   
     app.run(host='0.0.0.0', port=8080, debug=True)
