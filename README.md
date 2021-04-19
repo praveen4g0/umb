@@ -13,9 +13,10 @@ docker run -it --network=host <image-name> /bin/bash
 
 ```
 
-* As of now we support 2 routes 
-    1. `/consume` will help you to register with umb consumerService
-    2. `/stop` will help you to stop registred services!
+* As of now we support 3 routes 
+    1. `/consume` will help you to register with umb consumerService (`GET`)
+    2. `/stop` will help you to stop registred services! (`GET`)
+    3. `/produce` will help user to produce text message! (`POST`)
 
 * Now you can deploy this service on any openshift cluster deployed behind the vpn! (psi)
 ```
@@ -34,5 +35,18 @@ oc rollout status dc/umb-psi-pipelines-robot-config
 oc apply -f openshift/service.yaml
 
 oc get route umb-service --template='http://{{.spec.host}} '
+
+```
+
+* Now user should be able to post message json or text message to any topic
+
+```
+ curl -X POST -H 'Content-Type: application/json' http://localhost:8080/produce -d '{"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.complete", "message": {}}'               
+
+Response: 
+
+{
+    "Message": "message sent successfully! to topic topic://VirtualTopic.qe.ci.product-scenario.test.complete"
+}
 
 ```

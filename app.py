@@ -4,11 +4,11 @@ import concurrent.futures.thread
 from concurrent.futures import ThreadPoolExecutor
 from proton.handlers import MessagingHandler
 from proton.reactor import Container, Selector
-from proton import SSLDomain
+from proton import SSLDomain, Message
 import json
 from jsonpath_rw import jsonpath, parse
 import logging
-from flask import Flask,jsonify
+from flask import Flask, request, abort, jsonify
 import os
 import socket
 from os.path import dirname, join
@@ -117,6 +117,52 @@ class consumerProcessEvent(object):
         else:   
            self._logger.debug("We aren't supporting text based messages {0} yet!".format(normalized))
 
+"""
+Proton event Handler class
+Establishes an amqp connection and creates an amqp sender link to transmit messages
+"""
+
+class UMBMessageProducer(MessagingHandler):
+    def __init__(self, address, message,configmap):
+        super(UMBMessageProducer, self).__init__()
+        self._logger = logging.getLogger(__name__)
+        self.cert = configmap.get_umb_cert_path()
+        self.key = configmap.get_umb_private_key_path()
+        self.urls = configmap.get_umb_brokers()
+         # the prefix amqp address for a solace topic
+        self.topic_address = address
+        self.message = message
+
+    def on_start(self, event):
+        # select authentication from SASL PLAIN or SASL ANONYMOUS
+        domain = SSLDomain(SSLDomain.MODE_CLIENT)
+        domain.set_credentials(self.cert, self.key, None)
+        conn = event.container.connect(urls=self.urls, ssl_domain=domain)
+        if conn:
+            # creates sender link to transfer message to the broker
+            event.container.create_sender(conn, target=self.topic_address)
+            self._logger.info("created a link to senders to topic {0}".format(self.topic_address))
+   
+    def on_sendable(self, event):
+        if isinstance(self.message,str):
+            event.sender.send(Message(body=self.message,durable=True))
+            event.sender.close()
+        else:
+            self._logger.error("Could Not Process message of type: {0}, expected type: (str) ".format(type(self.message)),
+                               exc_info=True)
+    
+    def on_accepted(self, event):
+        self._logger.info('message accepted! now closing connection')
+        event.connection.close()
+
+    def on_rejected(self, event):
+         self._logger.info("Broker {0} Rejected message: {1}, Remote disposition: {2}".format(self.urls,event.delivery.tag,event.delivery.remote.condition))
+
+    # receives socket or authentication failures
+    def on_transport_error(self, event):
+        self._logger.info("Transport failure for amqp broker: {0} Error: {1}".format(self.urls,event.transport.condition))
+        MessagingHandler.on_transport_error(self, event)           
+
 class UmbReader(MessagingHandler):
     def __init__(self, configmap):
         super(UmbReader, self).__init__()
@@ -139,10 +185,11 @@ class UmbReader(MessagingHandler):
         domain.set_credentials(self.cert, self.key, None)
         conn = event.container.connect(urls=self.urls, ssl_domain=domain)
         source = self.get_consumer_queue_str()
-        event.container.create_receiver(conn, source=source,
-                                        options=self.get_selector())
-        self._logger.info("Subscribed to topic {0}".format(source))
-    
+        if conn:
+            event.container.create_receiver(conn, source=source,
+                                            options=self.get_selector())
+            self._logger.info("Subscribed to topic {0}".format(source))
+        
 
     def on_message(self, event):
         try:
@@ -176,12 +223,42 @@ class UmbConsumerService(object):
             self.container.run()
         except KeyboardInterrupt: pass
 
+class UmbProducerService(object):
+    def __init__(self, topic,message,configmap):
+        self.up = UMBMessageProducer(topic,message,configmap)
+        self.container = Container(self.up)
+
+    def start(self):
+        try:
+            self.container.run()
+        except KeyboardInterrupt: pass
+
 def consumerStart():
     UmbConsumerService(ConfigurationManager(cfg_path=args.config)).start()
+
+def producerServiceStart(topic,message):
+    UmbProducerService(topic,message,ConfigurationManager(cfg_path=args.config)).start()
 
 @app.route("/")
 def hello():
     return jsonify({"Message": "Hello World!"}),200
+
+@app.route('/produce', methods=['POST'])                                                                                                    
+def prodcueUMBMessage(): 
+    if not request.json:
+        abort(400)
+    if request.method == 'POST':                                                                                                                                 
+        data = request.get_json()
+        if isinstance(data['message'],str):
+            producerServiceStart(data['topic'],data['message'])
+            return jsonify({"Message": "message sent successfully! to {0}".format(data['topic'])}),200   
+        elif isinstance(data['message'],dict): 
+            producerServiceStart(data['topic'],json.dumps(data['message']))
+            return jsonify({"Message": "message sent successfully! to {0}".format(data['topic'])}),200
+        else:
+            return jsonify({"Error": "we don't support messages of type {}".format(type(data['message']))}),400    
+    else:
+      abort(400)
 
 @app.route("/consume")
 def startConsumerService():
