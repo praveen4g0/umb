@@ -32,7 +32,7 @@ oc rollout status dc/umb-psi-pipelines-robot-config
 
 oc apply -f openshift/service.yaml
 
-oc get route umb-service --template='http://{{.spec.host}} '
+oc get route umb-service --template='http://{{.spec.host}}'
 
 ```
 
