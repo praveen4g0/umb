@@ -13,9 +13,8 @@ docker run -it --network=host <image-name> /bin/bash
 
 ```
 
-* As of now we support 3 routes 
-    2. `/stop` will help you to stop registred services! (`GET`)
-    3. `/produce` will help user to produce text message! (`POST`)
+* As of now we support
+    1. `/produce` will help user to produce text message! (`POST`)
 
 * Now you can deploy this service on any openshift cluster deployed behind the vpn! (psi)
 ```

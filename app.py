@@ -1,7 +1,8 @@
 import argparse
 import threading
+import collections
 import concurrent.futures.thread
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor,as_completed
 from proton.handlers import MessagingHandler
 from proton.reactor import Container, Selector
 from proton import SSLDomain, Message
@@ -37,16 +38,12 @@ class ConfigurationManager(object):
 
     def _get_umb_config(self):
         key = 'umb' if 'umb' in self._config else 'amq'
-        return self._get_config().get(key, dict())
-
-    def get_eventlistener(self):
-        return self._get_umb_config().get('el_url')
-
-    def get_selector(self):
-        return self._get_umb_config().get('selector') 
-
-    def get_umb_topic(self):
-        return self._get_umb_config().get('topic')
+        return self._get_config().get(key, dict())    
+    
+    def get_subscribiers_config_list(self):
+        key = 'subscriber'
+        Subscriber = collections.namedtuple("Subscriber", ["topic", "selector", "sink_url"])
+        return [Subscriber(**x) for x in self._get_config().get(key, list())]
 
     def get_umb_consumer(self):
         return self._get_umb_config().get('consumer')
@@ -62,10 +59,10 @@ class ConfigurationManager(object):
         return [urls] if isinstance(urls, str) else urls
    
 class consumerProcessEvent(object):
-    def __init__(self,configmap):
+    def __init__(self,selector,sink_url):
       self._logger = logging.getLogger(__name__)
-      self.el = configmap.get_eventlistener()
-      self.selector= configmap.get_selector()
+      self.el = sink_url
+      self.selector= selector
     
     def normalize(self,event):
         body=event.message.body
@@ -164,18 +161,18 @@ class UMBMessageProducer(MessagingHandler):
         MessagingHandler.on_transport_error(self, event)           
 
 class UmbReader(MessagingHandler):
-    def __init__(self, configmap):
+    def __init__(self, topic,selector,sink_url,configmap):
         super(UmbReader, self).__init__()
         self._logger = logging.getLogger(__name__)
-        self.consumerProcessEvent = consumerProcessEvent(configmap)
-        self.umb_topic = configmap.get_umb_topic()
+        self.consumerProcessEvent = consumerProcessEvent(selector,sink_url)
+        self.topic=topic
         self.consumer = configmap.get_umb_consumer()
         self.cert = configmap.get_umb_cert_path()
         self.key = configmap.get_umb_private_key_path()
         self.urls = configmap.get_umb_brokers()
     def get_consumer_queue_str(self):
         seperator = '' if self.consumer.endswith('.') else '.'
-        return '{}{}{}'.format(self.consumer, seperator, self.umb_topic)
+        return '{}{}{}'.format(self.consumer, seperator, self.topic)
 
     def get_selector(self):
         return None
@@ -214,8 +211,8 @@ def parse_args():
 
 class UmbConsumerService(object):
     
-    def __init__(self, configmap):
-        self.ur = UmbReader(configmap)
+    def __init__(self, topic,selector,sink_url,configmap):
+        self.ur = UmbReader(topic,selector,sink_url,configmap)
         self.container = Container(self.ur)
 
     def start(self):
@@ -233,8 +230,8 @@ class UmbProducerService(object):
             self.container.run()
         except KeyboardInterrupt: pass
 
-def consumerStart():
-    UmbConsumerService(ConfigurationManager(cfg_path=args.config)).start()
+def consumerStart(topic,selector,sink_url,configmap):
+    UmbConsumerService(topic,selector,sink_url,configmap).start()
 
 def producerServiceStart(topic,message):
     UmbProducerService(topic,message,ConfigurationManager(cfg_path=args.config)).start()
@@ -260,22 +257,11 @@ def prodcueUMBMessage():
     else:
       abort(400)
 
-@app.route("/stop")            
-def stopConsumerService():
-    executor._threads.clear()
-    concurrent.futures.thread._threads_queues.clear()
-    return jsonify({"Message": "Stopped Consumer service gracefully!"}),200
-
 if __name__ == "__main__":
     args = parse_args()
     setup_logging(args.verbose)
     executor=ThreadPoolExecutor(max_workers=3)
-    try:
-       executor.submit(consumerStart)
-       print(jsonify({"Message": "Consumer Registered successfully!"}))
-    except KeyboardInterrupt:
-        executor._threads.clear()
-        concurrent.futures.thread._threads_queues.clear()     
-    except Exception as e:
-            print(e)   
+    config=ConfigurationManager(cfg_path=args.config)
+    [executor.submit(consumerStart,subscriber.topic, subscriber.selector, subscriber.sink_url,config) for subscriber  in config.get_subscribiers_config_list()]
+    print("Consumer Registered successfully!")
     app.run(host='0.0.0.0', port=8080, debug=True)
