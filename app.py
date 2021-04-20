@@ -71,13 +71,13 @@ class consumerProcessEvent(object):
                 if isinstance(body,bytes):
                    body = event.message.body.decode("utf-8")
             except UnicodeEncodeError:
-                self._logger.error("Could not decode message body")
+                self._logger.error("{0}: Could not decode message body".format(threading.currentThread().getName()))
                 raise
-            self._logger.debug("Parsing Event: {0}".format(body))
+            self._logger.debug("{0}: Parsing Event: {1}".format(threading.currentThread().getName(),body))
             body = json.loads(body)
         except ValueError:
-            self._logger.info("Cannot parse message: not valid JSON.")
-            self._logger.info("Assuming message is a simple string.")
+            self._logger.info("{0}: Cannot parse message: not valid JSON.".format(threading.currentThread().getName()))
+            self._logger.info("{0}: Assuming message is a simple string.".format(threading.currentThread().getName()))
             try:
                 body = str(body)
             except ValueError:
@@ -92,18 +92,18 @@ class consumerProcessEvent(object):
              try:
                 match = jsonpath_expr.find(normalized)
                 if str(match[0].value).find(expected_val) != -1:
-                    self._logger.info("Recived Message to process... ")
+                    self._logger.info("{0}: Recived Message to process... ".format(threading.currentThread().getName()))
                     self._logger.info(type(normalized))
-                    self._logger.info("We are sending processed messages to eventlisteners {0} ".format(self.el))
+                    self._logger.info("{0}: We are sending processed messages to eventlisteners {1} ".format(threading.currentThread().getName(),self.el))
                     headers = { 'content-type': 'application/json' }
                     try:
                         res = requests.post(self.el,data=json.dumps(normalized),headers=headers)
                         self._logger.info(res.content)   
                     except (ConnectTimeout, HTTPError, ReadTimeout, Timeout, ConnectionError) as e:
-                        self._logger.info("Ahh, something went wrong! Check sink-url {0} health status".format(self.el))
+                        self._logger.info("{0}: Ahh, something went wrong! Check sink-url {1} health status".format(threading.currentThread().getName(),self.el))
                         self._logger.error(str(e),exc_info=True)
                 else:
-                    self._logger.info("message didn't pass filter check.")
+                    self._logger.info("{0}: message didn't pass filter check.".format(threading.currentThread().getName()))
                     self._logger.info(normalized)
              except IndexError:
                 self._logger.debug(normalized)
@@ -112,7 +112,7 @@ class consumerProcessEvent(object):
                 self._logger.debug(normalized) 
                 raise
         else:   
-           self._logger.debug("We aren't supporting text based messages {0} yet!".format(normalized))
+           self._logger.debug("{0}: We aren't supporting text based messages {1} yet!".format(threading.currentThread().getName(),normalized))
 
 """
 Proton event Handler class
@@ -138,26 +138,26 @@ class UMBMessageProducer(MessagingHandler):
         if conn:
             # creates sender link to transfer message to the broker
             event.container.create_sender(conn, target=self.topic_address)
-            self._logger.info("created a link to senders to topic {0}".format(self.topic_address))
+            self._logger.info("{0}: created a link to senders to topic {1}".format(threading.currentThread().getName(),self.topic_address))
    
     def on_sendable(self, event):
         if isinstance(self.message,str):
             event.sender.send(Message(body=self.message,durable=True))
             event.sender.close()
         else:
-            self._logger.error("Could Not Process message of type: {0}, expected type: (str) ".format(type(self.message)),
+            self._logger.error("{0}: Could Not Process message of type: {1}, expected type: (str) ".format(threading.currentThread().getName(),type(self.message)),
                                exc_info=True)
     
     def on_accepted(self, event):
-        self._logger.info('message accepted! now closing connection')
+        self._logger.info('{0}: message accepted! now closing connection'.format(threading.currentThread().getName()))
         event.connection.close()
 
     def on_rejected(self, event):
-         self._logger.info("Broker {0} Rejected message: {1}, Remote disposition: {2}".format(self.urls,event.delivery.tag,event.delivery.remote.condition))
+         self._logger.info("{0}: Broker {1} Rejected message: {2}, Remote disposition: {3}".format(threading.currentThread().getName(),self.urls,event.delivery.tag,event.delivery.remote.condition))
 
     # receives socket or authentication failures
     def on_transport_error(self, event):
-        self._logger.info("Transport failure for amqp broker: {0} Error: {1}".format(self.urls,event.transport.condition))
+        self._logger.info("{0}: Transport failure for amqp broker: {1} Error: {2}".format(threading.currentThread().getName(),self.urls,event.transport.condition))
         MessagingHandler.on_transport_error(self, event)           
 
 class UmbReader(MessagingHandler):
@@ -185,7 +185,7 @@ class UmbReader(MessagingHandler):
         if conn:
             event.container.create_receiver(conn, source=source,
                                             options=self.get_selector())
-            self._logger.info("Subscribed to topic {0}".format(source))
+            self._logger.info("{0} Subscribed to topic {1}".format(threading.currentThread().getName(),source))
         
 
     def on_message(self, event):
@@ -193,7 +193,7 @@ class UmbReader(MessagingHandler):
             self._logger.info(type(event.message.body))
             self.consumerProcessEvent.process_event(event)
         except Exception:
-            self._logger.error("Could Not Process Event, Will Ignore. Error Info:",
+            self._logger.error("{0}: Could Not Process Event, Will Ignore. Error Info:".format(threading.currentThread().getName()),
                                exc_info=True)
   
 
@@ -262,6 +262,13 @@ if __name__ == "__main__":
     setup_logging(args.verbose)
     executor=ThreadPoolExecutor(max_workers=3)
     config=ConfigurationManager(cfg_path=args.config)
-    [executor.submit(consumerStart,subscriber.topic, subscriber.selector, subscriber.sink_url,config) for subscriber  in config.get_subscribiers_config_list()]
+    futures=[executor.submit(consumerStart,subscriber.topic, subscriber.selector, subscriber.sink_url,config) for subscriber  in config.get_subscribiers_config_list()]
     print("Consumer Registered successfully!")
     app.run(host='0.0.0.0', port=8080, debug=True)
+    try:
+        for future in as_completed(futures):
+            future.result()
+    except KeyboardInterrupt:
+        executor._threads.clear()
+        concurrent.futures.thread._threads_queues.clear()
+        executor.shutdown(True)
