@@ -1,8 +1,6 @@
 python-qpid-proton
 argparse
-kafka
 pyyaml
-prometheus_client
 jsonpath-rw
 Flask
 gunicorn

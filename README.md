@@ -48,3 +48,30 @@ Response:
 }
 
 ```
+
+## UMB notifications
+You can easily produce a message to UMB topic to notify if your pipeline has failed or run sucessfully. There is a script in `misc/send-umb-message.py` that can help you with that, with the help of the finally tasks in your pipeline.
+
+At the end of your pipeline add this block :
+```
+  finally:
+    - name: finally
+      taskSpec:
+        steps:
+          - name: send-umb-notification
+            env:
+              - name: UMB_WEBHOOK_URL
+                value: "http://umb-service-umb.apps.cicd.tekton.codereadyqe.com/produce"
+              - name: PIPELINERUN
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['tekton.dev/pipelineRun']
+              - name: LOG_URL
+                value: "openshift"
+              - name: VERSION
+                value: VERSION
+              - name: XUNIT_URLS
+                value: XUNIT_URLS
+            image: quay.io/praveen4g0/umb-interop-notifier:latest
+            command: ["/code/send-umb-message.py"]
+```
