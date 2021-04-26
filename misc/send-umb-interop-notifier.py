@@ -272,8 +272,8 @@ def main() -> int:
             args.pipelinerun + "/logs"
 
     if failures:
-        slack_text = f"""• *Failed Tasks*: {", ".join(failures)}\n"""
-        ret = send_interop_test_error_msg(args.webhook_url,args.version,args.log_url,slack_text)
+        error_msg = f"""• *Failed Tasks*: {", ".join(failures)}\n"""
+        ret = send_interop_test_error_msg(args.webhook_url,args.version,args.log_url,error_msg)
         if ret:
             print(ret)
     elif args.xunit_urls:
