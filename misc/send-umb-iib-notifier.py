@@ -171,7 +171,7 @@ def main() -> int:
     if failures:
         error_msg = f"""• *Failed Tasks*: {", ".join(failures)}\n"""
         print(error_msg)
-        return 1
+        #TO_DO Implement send failed message to right topic(If exist). 
     else:
         ret = send_iib_test_complete_msg(args.umb_webhook_url, args.iib,args.ocp_version,str(uuid.uuid4()),args.pipelinerun,args.log_url)
         if ret:

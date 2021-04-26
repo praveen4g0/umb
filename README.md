@@ -50,7 +50,7 @@ Response:
 ```
 
 ## UMB notifications
-You can easily produce a message to UMB topic to notify if your pipeline has failed or run sucessfully. There is a script in `misc/send-umb-message.py` that can help you with that, with the help of the finally tasks in your pipeline.
+You can easily produce a message to UMB topic to notify if your pipeline has failed or run sucessfully. There is a script in `misc/send-umb-interop-notifier.py` or `misc/send-umb-iib-notifier.py` that can help you with that, with the help of the finally tasks in your pipeline.
 
 At the end of your pipeline add this block :
 ```
@@ -73,5 +73,6 @@ At the end of your pipeline add this block :
               - name: XUNIT_URLS
                 value: XUNIT_URLS
             image: quay.io/praveen4g0/umb-interop-notifier:latest
-            command: ["/code/send-umb-message.py"]
+            command: ["/code/send-umb-interop-notifier.py"] 
+            # command: ["/code/send-umb-iib-notifier.py"]
 ```
