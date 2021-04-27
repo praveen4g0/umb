@@ -1,0 +1,66 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: interop-template
+spec:
+  params:
+    - name: architecture
+    - name: ocp_build
+    - name: layered_product_version
+    - name: ocp_version
+    - name: template_version
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: openshift-pipelines-acceptance-tests-
+      spec:
+        pipelineRef:
+          name: openshift-pipelines-acceptance-tests
+        timeout: 3h
+        params:
+        - name: BOOTSTRAP_IMAGE
+          value: quay.io/praveen4g0/release-tests-bootstrap-image:v1.2.0
+        - name: CLUSTER_NAME
+          value: qeci-$(tt.params.architecture)-$(tt.params.layered_product_version)
+        - name: CATALOG_SOURCE
+          value: redhat-operators
+        - name: CHANNEL
+          value: stable
+        - name: INDEX
+          value: $(tt.params.layered_product_version)
+        - name: LAUNCHER_VARS
+          value: >-
+            {
+            "dns_solution":"route53",
+            "num_workers":2
+            }
+        - name: OPENSHIFT_VERSION
+          value: dev-preview/$(tt.params.ocp_build)
+        - name: OPERATOR_ENVIRONMENT
+          value: prod
+        - name: RELEASE_TESTS_IMAGE
+          value: quay.io/praveen4g0/release-tests:4.6.6
+        - name: RELEASE_TESTS_BRANCH
+          value: release-v$(tt.params.layered_product_version)
+        - name: TEMPLATE
+          value: private-templates/functionality-testing/aos-$(tt.params.template_version)/ipi-on-osp/versioned-installer    
+        - name: TUTORIAL_BRANCH
+          value: pipelines-$(tt.params.layered_product_version)
+        workspaces:
+        - name: flexy-output
+          emptyDir: {}
+        - name: flexy-secrets
+          secret:
+            secretName: flexy
+        - name: install-dir
+          persistentVolumeClaim:
+            claimName: install-dir
+        - name: git
+          volumeClaimTemplate:
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 200Mi

@@ -1,0 +1,88 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: index-image-template
+spec:
+  params:
+    - name: index_number
+    - name: ocp_version
+    - name: template_version
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: openshift-pipelines-acceptance-tests-
+      spec:
+        pipelineRef:
+          name: openshift-pipelines-acceptance-tests
+        timeout: 3h
+        params:
+        - name: BOOTSTRAP_IMAGE
+          value: quay.io/praveen4g0/release-tests-bootstrap-image:v1.2.0
+        - name: CLUSTER_NAME
+          value: ni8lyci-$(tt.params.index_number)
+        - name: CATALOG_SOURCE
+          value: nightly-operators
+        - name: CHANNEL
+          value: preview
+        - name: INDEX
+          value: $(tt.params.index_number)
+        - name: LAUNCHER_VARS
+          value: >-
+            {
+            "dns_solution":"route53",
+            "num_workers":2
+            }
+        - name: OPENSHIFT_VERSION
+          value: dev-preview/latest-$(tt.params.ocp_version)
+        - name: OPERATOR_ENVIRONMENT
+          value: pre-stage
+        - name: RELEASE_TESTS_IMAGE
+          value: quay.io/praveen4g0/release-tests:4.6.6
+        - name: RELEASE_TESTS_BRANCH
+          value: master
+        - name: TEMPLATE
+          value: private-templates/functionality-testing/aos-$(tt.params.template_version)/ipi-on-osp/versioned-installer    
+        - name: TUTORIAL_BRANCH
+          value: master
+        workspaces:
+        - name: flexy-output
+          emptyDir: {}
+        - name: flexy-secrets
+          secret:
+            secretName: flexy
+        - name: install-dir
+          persistentVolumeClaim:
+            claimName: install-dir
+        - name: git
+          volumeClaimTemplate:
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 200Mi
+    - apiVersion: tekton.dev/v1beta1
+      kind: TaskRun
+      metadata:
+        generateName: publish-nightly-operator-aritifacts-
+      spec:
+        params:
+          - name: ARCH
+            value: "linux/amd64"
+          - name: INDEX
+            value: $(tt.params.index_number)
+          - name: USER_NAME
+            value: openshift-pipeline
+          - name: OCP_VERSION
+            value: $(tt.params.ocp_version)
+          - name: ENV
+            value: pre-stage
+        serviceAccountName: pipeline
+        taskRef:
+          kind: Task
+          name: publish-nightly-operator-artifacts
+        workspaces:
+        - name: authfile
+          secret:
+            secretName: openshift-install

@@ -1,0 +1,14 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerBinding
+metadata:
+  name: index-image-binding
+spec:
+  params:
+  - name: index_image
+    value: $(body.index.index_image)
+  - name: index_number
+    value: $(extensions.index_number)
+  - name: ocp_version
+    value: $(extensions.ocp_verison)
+  - name: template_version
+    value: $(extensions.template_version)

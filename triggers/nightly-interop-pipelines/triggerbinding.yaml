@@ -1,0 +1,16 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerBinding
+metadata:
+  name: interop-binding
+spec:
+  params:
+  - name: architecture
+    value: $(body.artifact.products[1].architecture)
+  - name: ocp_build
+    value: $(extensions.ocp_build)
+  - name: ocp_version
+    value: $(body.artifact.products[1].version)
+  - name: layered_product_version
+    value: $(body.artifact.products[0].version)  
+  - name: template_version
+    value: $(extensions.template_version) 

@@ -1,0 +1,21 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: new-index-image-listener
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - name: index-image-trigger
+      interceptors:
+        - cel:
+            overlays:
+            - key: ocp_verison
+              expression: "body.index.ocp_version.replace('v','')"
+            - key: template_version
+              expression: "body.index.ocp_version.replace('v','').replace('.','_')"
+            - key: index_number
+              expression: "body.index.index_image.split(':')[1]"  
+      bindings:
+      - ref: index-image-binding
+      template:
+        ref: index-image-template
