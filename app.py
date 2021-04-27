@@ -159,8 +159,8 @@ class UMBMessageProducer(MessagingHandler):
                                exc_info=True)
     
     def on_accepted(self, event):
-        self._logger.info('{0}: message accepted! now closing connection'.format(threading.currentThread().getName()))
-        event.connection.close()
+        self._logger.info('{0}: message accepted!'.format(threading.currentThread().getName()))
+        # event.connection.close()
 
     def on_rejected(self, event):
          self._logger.info("{0}: Broker {1} Rejected message: {2}, Remote disposition: {3}".format(threading.currentThread().getName(),self.urls,event.delivery.tag,event.delivery.remote.condition))
