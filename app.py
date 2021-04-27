@@ -87,13 +87,32 @@ class consumerProcessEvent(object):
     def process_event(self, event):
         normalized = self.normalize(event)
         if isinstance(normalized, dict):
-             selector,expected_val= str(self.selector).split(',')[0],str(self.selector).split(',')[1]
-             jsonpath_expr = parse(selector)
              try:
-                match = jsonpath_expr.find(normalized)
-                if str(match[0].value).find(expected_val) != -1:
-                    self._logger.info("{0}: Recived Message to process... ".format(threading.currentThread().getName()))
-                    self._logger.info(type(normalized))
+                selector,expected_val= str(self.selector).split(',')[0],str(self.selector).split(',')[1]
+                jsonpath_expr = parse(selector)
+                try:
+                    match = jsonpath_expr.find(normalized)
+                    if str(match[0].value).find(expected_val) != -1:
+                        self._logger.info("{0}: Recived Message to process... ".format(threading.currentThread().getName()))
+                        self._logger.info(type(normalized))
+                        self._logger.info("{0}: We are sending processed messages to eventlisteners {1} ".format(threading.currentThread().getName(),self.el))
+                        headers = { 'content-type': 'application/json' }
+                        try:
+                            res = requests.post(self.el,data=json.dumps(normalized),headers=headers)
+                            self._logger.info(res.content)   
+                        except (ConnectTimeout, HTTPError, ReadTimeout, Timeout, ConnectionError) as e:
+                            self._logger.info("{0}: Ahh, something went wrong! Check sink-url {1} health status".format(threading.currentThread().getName(),self.el))
+                            self._logger.error(str(e),exc_info=True)
+                    else:
+                        self._logger.info("{0}: message didn't pass filter check.".format(threading.currentThread().getName()))
+                        self._logger.info(normalized)
+                except IndexError:
+                    self._logger.debug(normalized)
+                    raise       
+                except Exception:
+                    self._logger.debug(normalized) 
+                    raise
+             except Exception:
                     self._logger.info("{0}: We are sending processed messages to eventlisteners {1} ".format(threading.currentThread().getName(),self.el))
                     headers = { 'content-type': 'application/json' }
                     try:
@@ -102,15 +121,6 @@ class consumerProcessEvent(object):
                     except (ConnectTimeout, HTTPError, ReadTimeout, Timeout, ConnectionError) as e:
                         self._logger.info("{0}: Ahh, something went wrong! Check sink-url {1} health status".format(threading.currentThread().getName(),self.el))
                         self._logger.error(str(e),exc_info=True)
-                else:
-                    self._logger.info("{0}: message didn't pass filter check.".format(threading.currentThread().getName()))
-                    self._logger.info(normalized)
-             except IndexError:
-                self._logger.debug(normalized)
-                raise       
-             except Exception as e:
-                self._logger.debug(normalized) 
-                raise
         else:   
            self._logger.debug("{0}: We aren't supporting text based messages {1} yet!".format(threading.currentThread().getName(),normalized))
 

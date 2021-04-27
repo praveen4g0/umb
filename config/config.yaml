@@ -9,3 +9,6 @@ subscriber:
     - topic: VirtualTopic.eng.ci.redhat-container-image.index.built.>
       selector: artifact.nvr,openshift-pipelines-operator-bundle-container
       sink_url: http://my-eventlsisterner.com
+    - topic: VirtualTopic.qe.ci.product-scenario.build.complete.>
+      selector: artifact.products[0].nvr,openshift-pipelines
+      sink_url: http://my-eventlsisterner.com
