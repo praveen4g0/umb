@@ -1,7 +1,6 @@
 python-qpid-proton
 argparse
 pyyaml
-jsonpath-rw
 Flask
 gunicorn
 requests
