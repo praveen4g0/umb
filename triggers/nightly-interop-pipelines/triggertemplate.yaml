@@ -22,7 +22,7 @@ spec:
         - name: BOOTSTRAP_IMAGE
           value: quay.io/praveen4g0/release-tests-bootstrap-image:v1.2.0
         - name: CLUSTER_NAME
-          value: qeci-$(tt.params.architecture)-$(tt.params.layered_product_version)
+          value: qeci-$(tt.params.ocp_version)
         - name: CATALOG_SOURCE
           value: redhat-operators
         - name: CHANNEL
