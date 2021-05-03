@@ -81,9 +81,15 @@ At the end of your pipeline add this block :
     workspaces:
     - name: kubeconfig
       workspace: kubeconfig
+    params:
+    - name: artifacts
+      value: $(tasks.echo-artifacts.results.artifacts)
     taskSpec:
       workspaces:
       - name: kubeconfig
+      params:
+      - name: artifacts
+        description: artifatcs of previous taskruns
       steps:
         - name: send-umb-notification
           env:
@@ -98,10 +104,10 @@ At the end of your pipeline add this block :
             - name: VERSION
               value: $(tt.params.layered_product_version)
             - name: XUNIT_URLS
-              value:  $(tt.params.artifacts)
+              value: $(params.artifacts)
             - name: KUBECONFIG
               value: $(workspaces.kubeconfig.path)/kubeconfig  
           image: quay.io/praveen4g0/umb-notifier:latest
-          command: ["/code/send-umb-interop-notifier.py"] 
+          command: ["/code/send-umb-interop-notifier.py"]
           # command: ["/code/send-umb-iib-notifier.py"]
 ```
