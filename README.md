@@ -111,3 +111,23 @@ At the end of your pipeline add this block :
           command: ["/code/send-umb-interop-notifier.py"]
           # command: ["/code/send-umb-iib-notifier.py"]
 ```
+
+## How to use?
+
+* Here is, sample [resources](demo/dummy-resources) to guide you, how to settup pipelines by consuming umb services.
+
+* Apply trigger resources
+```
+oc apply -f https://raw.githubusercontent.com/praveen4g0/umb/v0.0.1/demo/dummy-resources/eventlistener.yaml
+
+oc apply -f https://raw.githubusercontent.com/praveen4g0/umb/v0.0.1/demo/dummy-resources/triggerbinding.yaml
+
+oc apply -f https://raw.githubusercontent.com/praveen4g0/umb/v0.0.1/demo/dummy-resources/triggertemplate.yaml
+
+oc expose svc el-demo-interop-listener
+
+sink_url=$(oc get route el-demo-interop-listener  --template='http://{{.spec.host}}')
+```
+
+* now `$sink_url` will be your sink url to configure in consumer service to receive configured messages from umb topic
+see sample configration [here](configs/configmap.yaml) to receive notifications from umb consumer service.
