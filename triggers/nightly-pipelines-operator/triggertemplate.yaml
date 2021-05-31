@@ -20,7 +20,7 @@ spec:
         - name: BOOTSTRAP_IMAGE
           value: quay.io/praveen4g0/release-tests-bootstrap-image:v1.2.0
         - name: CLUSTER_NAME
-          value: ni8lyci-$(tt.params.index_number)
+          value: ni8lyci-$(context.pipelineRun.uid)
         - name: CATALOG_SOURCE
           value: nightly-operators
         - name: CHANNEL
@@ -74,10 +74,6 @@ spec:
             value: $(tt.params.index_number)
           - name: USER_NAME
             value: openshift-pipeline
-          - name: OCP_VERSION
-            value: $(tt.params.ocp_version)
-          - name: ENV
-            value: pre-stage
         serviceAccountName: pipeline
         taskRef:
           kind: Task

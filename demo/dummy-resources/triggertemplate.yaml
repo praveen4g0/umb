@@ -1,0 +1,233 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: demo-interop-template
+spec:
+  params:
+    - name: architecture
+    - name: ocp_build
+    - name: layered_product_version
+    - name: ocp_version
+    - name: template_version
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: pipelinerun-with-failed-taskspec-
+      spec:
+        workspaces:
+        - name: kubeconfig
+          secret:
+            secretName: kubeconfig
+        pipelineSpec:
+          workspaces:
+          - name: kubeconfig
+          tasks:
+            - name: generate-artifacts
+              params:
+                - name: RUN_NAME
+                  value: $(context.pipelineRun.name)
+              taskSpec:
+                results:
+                - name: path
+                  description: Path for uploading all artifacts from given pipeline run.
+                params:
+                - name: RUN_NAME
+                  description: |
+                    Task run or pipeline run name.
+                steps:
+                - name: generate
+                  image: registry.access.redhat.com/ubi8/ubi-minimal
+                  script: |
+                    #!/usr/bin/env bash
+                    set -e
+
+                    curr_ts=`date +"%Y%m%d-%H%M%S"`
+                    run_name=`sed 's/-[0-9a-z]\{5\}$//' <<< $(params.RUN_NAME)`
+
+                    echo -n CI/${run_name}/${curr_ts} | tee $(results.path.path)
+            - name: echo-artifacts
+              params:
+                - name: UPLOAD_PATH
+                  value: $(tasks.generate-artifacts.results.path)
+              runAfter:
+              - generate-artifacts
+              taskSpec:
+                params:
+                - name: UPLOAD_PATH
+                  description: |
+                    Artifacts upload path.
+                steps:
+                  - name: echo
+                    image: registry.redhat.io/ubi8/ubi-minimal
+                    script: |
+                      #!/usr/bin/env bash
+
+                      function produce_results() {
+                          echo -n "uploading artifacts to dir: $(params.UPLOAD_PATH)"
+                          mkdir -p $(params.UPLOAD_PATH)
+                          echo -n "find your dummy artifacts here: https://dummy-artifacts-of-your-test-result" > $(params.UPLOAD_PATH)/passed.xml
+                      }
+
+                      trap produce_results ERR EXIT
+                      echo "$(tt.params.architecture)"
+                      echo "dev-preview/$(tt.params.ocp_build)"
+                      echo "$(tt.params.layered_product_version)"
+                      echo "$(tt.params.ocp_version)"
+                      echo "$(tt.params.template_version)"
+            - name: echo-failed-artifacts
+              params:
+                - name: UPLOAD_PATH
+                  value: $(tasks.generate-artifacts.results.path)
+              runAfter:
+              - generate-artifacts
+              taskSpec:
+                params:
+                - name: UPLOAD_PATH
+                  description: |
+                    Artifacts upload path.
+                steps:
+                  - name: echo
+                    image: registry.redhat.io/ubi8/ubi-minimal
+                    script: |
+                      #!/usr/bin/env bash
+
+                      function produce_results() {
+                          echo -n "uploading artifacts to dir: $(params.UPLOAD_PATH)"
+                          mkdir -p $(params.UPLOAD_PATH)
+                          echo -n "find your dummy artifacts here: https://dummy-artifacts-of-your-test-result" > $(params.UPLOAD_PATH)/fail.xml
+                      }
+
+                      trap produce_results ERR EXIT
+                      exit 4         
+          finally:
+          - name: finally
+            workspaces:
+            - name: kubeconfig
+              workspace: kubeconfig
+            params:
+            - name: artifacts
+              value: $(tasks.generate-artifacts.results.path)/pass.xml,$(tasks.generate-artifacts.results.path)/fail.xml
+            taskSpec:
+              workspaces:
+              - name: kubeconfig
+              params:
+              - name: artifacts
+                description: artifatcs of previous taskruns
+              steps:
+                - name: send-umb-notification
+                  env:
+                    - name: UMB_WEBHOOK_URL
+                      value: "http://umb-service-umb.apps.cicd.tekton.codereadyqe.com/produce"
+                    - name: PIPELINERUN
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['tekton.dev/pipelineRun'] 
+                    - name: LOG_URL
+                      value: "openshift"
+                    - name: VERSION
+                      value: $(tt.params.layered_product_version)
+                    - name: XUNIT_URLS
+                      value: $(params.artifacts)
+                    - name: KUBECONFIG
+                      value: $(workspaces.kubeconfig.path)/kubeconfig  
+                  image: quay.io/praveen4g0/umb-notifier:latest
+                  command: ["/code/send-umb-interop-notifier.py"]
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: pipelinerun-with-taskspec-
+      spec:
+        workspaces:
+        - name: kubeconfig
+          secret:
+            secretName: kubeconfig
+        pipelineSpec:
+          workspaces:
+          - name: kubeconfig
+          tasks:
+            - name: generate-artifacts
+              params:
+                - name: RUN_NAME
+                  value: $(context.pipelineRun.name)
+              taskSpec:
+                results:
+                - name: path
+                  description: Path for uploading all artifacts from given pipeline run.
+                params:
+                - name: RUN_NAME
+                  description: |
+                    Task run or pipeline run name.
+                steps:
+                - name: generate
+                  image: registry.access.redhat.com/ubi8/ubi-minimal
+                  script: |
+                    #!/usr/bin/env bash
+                    set -e
+
+                    curr_ts=`date +"%Y%m%d-%H%M%S"`
+                    run_name=`sed 's/-[0-9a-z]\{5\}$//' <<< $(params.RUN_NAME)`
+
+                    echo -n CI/${run_name}/${curr_ts} | tee $(results.path.path)
+            - name: echo-artifacts
+              params:
+                - name: UPLOAD_PATH
+                  value: $(tasks.generate-artifacts.results.path)
+              runAfter:
+              - generate-artifacts
+              taskSpec:
+                params:
+                - name: UPLOAD_PATH
+                  description: |
+                    Artifacts upload path.
+                steps:
+                  - name: echo
+                    image: registry.redhat.io/ubi8/ubi-minimal
+                    script: |
+                      #!/usr/bin/env bash
+
+                      function produce_results() {
+                          echo -n "uploading artifacts to dir: $(params.UPLOAD_PATH)"
+                          mkdir -p $(params.UPLOAD_PATH)
+                          echo -n "find your dummy artifacts here: https://dummy-artifacts-of-your-test-result" > $(params.UPLOAD_PATH)/passed.xml
+                      }
+
+                      trap produce_results ERR EXIT
+                      echo "$(tt.params.architecture)"
+                      echo "dev-preview/$(tt.params.ocp_build)"
+                      echo "$(tt.params.layered_product_version)"
+                      echo "$(tt.params.ocp_version)"
+                      echo "$(tt.params.template_version)"        
+          finally:
+          - name: finally
+            workspaces:
+            - name: kubeconfig
+              workspace: kubeconfig
+            params:
+            - name: artifacts
+              value: $(tasks.generate-artifacts.results.path)/pass.xml,$(tasks.generate-artifacts.results.path)/fail.xml
+            taskSpec:
+              workspaces:
+              - name: kubeconfig
+              params:
+              - name: artifacts
+                description: artifatcs of previous taskruns
+              steps:
+                - name: send-umb-notification
+                  env:
+                    - name: UMB_WEBHOOK_URL
+                      value: "http://umb-service-umb.apps.cicd.tekton.codereadyqe.com/produce"
+                    - name: PIPELINERUN
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['tekton.dev/pipelineRun'] 
+                    - name: LOG_URL
+                      value: "openshift"
+                    - name: VERSION
+                      value: $(tt.params.layered_product_version)
+                    - name: XUNIT_URLS
+                      value: $(params.artifacts)
+                    - name: KUBECONFIG
+                      value: $(workspaces.kubeconfig.path)/kubeconfig  
+                  image: quay.io/praveen4g0/umb-notifier:latest
+                  command: ["/code/send-umb-interop-notifier.py"]

@@ -1,0 +1,8 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: umb-producer
+  annotations:
+    description: The umb image which helps you to produce messages
+  labels:
+    app: umb-producer

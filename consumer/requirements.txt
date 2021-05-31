@@ -1,0 +1,5 @@
+python-qpid-proton
+argparse
+pyyaml
+jsonpath-rw
+requests

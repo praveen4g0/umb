@@ -2,18 +2,19 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: "umb-psi-pipelines-robot-config"
-  labels:
-    template: umb-template
 data:
   config.yaml: |-
     amq:
       url:
         - amqps://messaging-devops-broker01.web.prod.ext.phx2.redhat.com:5671
         - amqps://messaging-devops-broker02.web.prod.ext.phx2.redhat.com:5671
-      certificate: config/psi-pipelines-robot.crt
-      private_key: config/psi-pipelines-robot.key
+      certificate: /etc/umb-certs/cert.crt
+      private_key: /etc/umb-certs/cert.key
       consumer: Consumer.psi-pipelines-robot.openshift-pipelines
     subscriber:
       - topic: VirtualTopic.eng.ci.redhat-container-image.index.built.>
         selector: artifact.nvr,openshift-pipelines-operator-bundle-container
-        sink_url: http://el-sample-listener-pthangad.apps.cicd.tekton.codereadyqe.com
+        sink_url: http://el-new-index-image-listener-pthangad.apps.cicd.tekton.codereadyqe.com
+      - topic: VirtualTopic.qe.ci.product-scenario.build.complete.>
+        selector: artifact.products[0].nvr,openshift-pipelines
+        sink_url: http://el-interop-listener-pthangad.apps.cicd.tekton.codereadyqe.com

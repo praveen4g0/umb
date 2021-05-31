@@ -273,7 +273,7 @@ def main() -> int:
 
     if failures:
         error_msg = f"""• *Failed Tasks*: {", ".join(failures)}\n"""
-        ret = send_interop_test_error_msg(args.webhook_url,args.version,args.log_url,error_msg)
+        ret = send_interop_test_error_msg(args.umb_webhook_url,args.version,args.log_url,error_msg)
         if ret:
             print(ret)
     elif args.xunit_urls:

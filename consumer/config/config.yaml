@@ -2,8 +2,8 @@ amq:
   url:
     - amqps://messaging-devops-broker01.web.prod.ext.phx2.redhat.com:5671
     - amqps://messaging-devops-broker02.web.prod.ext.phx2.redhat.com:5671
-  certificate: config/psi-pipelines-robot.crt
-  private_key: config/psi-pipelines-robot.key
+  certificate: consumer/config/psi-pipelines-robot.crt
+  private_key: consumer/config/psi-pipelines-robot.key
   consumer: Consumer.psi-pipelines-robot.openshift-pipelines
 subscriber:
     - topic: VirtualTopic.eng.ci.redhat-container-image.index.built.>

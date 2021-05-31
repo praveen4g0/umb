@@ -1,3 +1,3 @@
-config/psi-pipelines-robot.crt filter=git-crypt diff=git-crypt
-config/psi-pipelines-robot.key filter=git-crypt diff=git-crypt
-openshift/secrets.yaml filter=git-crypt diff=git-crypt
+consumer/config/psi-pipelines-robot.crt filter=git-crypt diff=git-crypt
+consumer/config/psi-pipelines-robot.key filter=git-crypt diff=git-crypt
+configs/secrets.yaml filter=git-crypt diff=git-crypt
