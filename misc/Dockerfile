@@ -1,5 +1,5 @@
 FROM registry.access.redhat.com/ubi8/ubi:8.2
-ARG TKN_VERSION=0.15.0
+ARG TKN_VERSION=0.18.0
 
 COPY . /code
 WORKDIR /code

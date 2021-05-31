@@ -120,9 +120,16 @@ class UmbProducerService(object):
         try:
             self.container.run()
         except KeyboardInterrupt: pass
+    def stop(self):
+        try:
+           self.container.stop()
+        except KeyboardInterrupt: pass
 
 def producerServiceStart(topic,message):
     UmbProducerService(topic,message,ConfigurationManager(cfg_path=args.config)).start()
+
+def producerServiceStop(topic,message):
+    UmbProducerService(topic,message,ConfigurationManager(cfg_path=args.config)).stop()    
 
 @app.route("/")
 def hello():
@@ -136,9 +143,11 @@ def prodcueUMBMessage():
         data = request.get_json()
         if isinstance(data['message'],str):
             producerServiceStart(data['topic'],data['message'])
+            producerServiceStop(data['topic'],data['message'])
             return jsonify({"Message": "message sent successfully! to {0}".format(data['topic'])}),200   
         elif isinstance(data['message'],dict): 
             producerServiceStart(data['topic'],json.dumps(data['message']))
+            producerServiceStop(data['topic'],data['message'])
             return jsonify({"Message": "message sent successfully! to {0}".format(data['topic'])}),200
         else:
             return jsonify({"Error": "we don't support messages of type {}".format(type(data['message']))}),400    
