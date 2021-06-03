@@ -56,81 +56,70 @@ def check_status_of_pipelinerun(
             failed.append(bname)
     return failed
 
-def send_interop_test_complete_msg(webhook_url: str, version: str,log_url: str, xunit_urls: str) -> str:
+def send_interop_test_complete_msg(webhook_url: str, msg_id: str,layered_version: str,openshit_version: str,external_build_index_url: str,external_build_index_id: str,log_url: str, xunit_urls: str) -> str:
     """Send a interop test complete message"""
-    msg = {
+    msg={
       "artifact": {
-      "id": "4856",
-      "products": [
+        "id": msg_id,
+        "products": [
+          {
+            "architecture": "x86_64",
+            "artifacts": [],
+            "build": "GA",
+            "id": "",
+            "name": "openshift-pipelines",
+            "nvr": "openshift-pipelines-"+layered_version,
+            "phase": "testing",
+            "release": "",
+            "state": "interop ready",
+            "type": "product-build",
+            "version": layered_version
+          },
+          {
+            "architecture": "x86_64",
+            "artifacts": [],
+            "build": "nightly",
+            "external_build_index_url": external_build_index_url,
+            "id": external_build_index_id,
+            "internal_build_index_url": "n/a",
+            "name": "openshift",
+            "nvr": "openshift-"+openshit_version,
+            "phase": "testing",
+            "release": "",
+            "state": "interop ready",
+            "type": "product-build",
+            "version": openshit_version
+          }
+        ],
+        "type": "product-scenario"
+      },
+      "contact": {
+        "docs": "https://docs.engineering.redhat.com/display/PIT/Interoperability+Testing+Team",
+        "email": "pit-qe@redhat.com",
+        "name": "PIQE Interop",
+        "team": "PIQE Interop",
+        "url": "https://docs.engineering.redhat.com/display/PIT/Interoperability+Testing+Team"
+      },
+      "generated_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"),
+      "run": {
+        "log": log_url,
+        "url": log_url+"/console"
+      },
+      "system": [
         {
-          "architecture": "x86_64",
-          "artifacts": [],
-          "build": "GA",
-          "id": "",
-          "name": "openshift-pipelines",
-          "nvr": "openshift-pipelines-"+version,
-          "phase": "testing",
-          "release": "",
-          "repos": [],
-          "state": "interop ready",
-          "subproduct": "Level2Guest",
-          "type": "product-build",
-          "version": version
-        },
-        {
-          "architecture": "x86_64",
-          "artifacts": [],
-          "build": "RC1.0",
-          "id": "RHEL-8.4.0-20210409.0",
-          "image": "RHEL-8.4.0-20210409.0-x86_64",
-          "name": "rhel",
-          "nvr": "RHEL-8.4.0-20210409.0",
-          "phase": "testing",
-          "release": "",
-          "repos": [
-            {
-              "base_url": "http://download.eng.bos.redhat.com/rhel-8/rel-eng/RHEL-8/RHEL-8.4.0-20210409.0/compose/BaseOS/x86_64/os",
-              "name": "baseos"
-            },
-            {
-              "base_url": "http://download.eng.bos.redhat.com/rhel-8/rel-eng/RHEL-8/RHEL-8.4.0-20210409.0/compose/AppStream/x86_64/os",
-              "name": "appstream"
-            }
-          ],
-          "state": "interop ready",
-          "type": "product-build",
-          "version": "8.4.0"
+          "architecture": "",
+          "os": "",
+          "provider": ""
         }
       ],
-      "type": "product-scenario"
-    },
-    "contact": {
-      "docs": "https://docs.engineering.redhat.com/display/PIT/Interoperability+Testing+Team",
-      "email": "psi-pipelines@redhat.com",
-      "name": "Openshift Pipelines",
-      "team": "Openshift Pipelines",
-      "url": "https://docs.engineering.redhat.com/display/PIT/Interoperability+Testing+Team"
-    },
-    "generated_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"),
-    "run": {
-      "log": log_url,
-      "url": log_url+"/console"
-    },
-    "system": [
-      {
-        "architecture": "x86_64",
-        "os": "RHEL-8.4.0-20210409.0",
-        "provider": "openstack",
-        "variant": "BaseOS"
-      }
-    ],
-    "test": {
-      "category": "interoperability",
-      "namespace": "interop",
-      "type": "product-scenario",
-      "xunit_urls": [xunit_urls]
-    },
-    "version": "0.2.2"
+      "test": {
+        "category": "interoperability",
+        "namespace": "interop",
+        "runtime": 2218,
+        "type": "product-scenario",
+        "xunit_urls": list(xunit_urls.split(","))
+      },
+      "version": "0.2.2"
     }
     data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.complete", "message": msg}
   
@@ -141,74 +130,63 @@ def send_interop_test_complete_msg(webhook_url: str, version: str,log_url: str, 
     # TODO: Handle error?
     return urllib.request.urlopen(req).read().decode()
 
-def send_interop_test_error_msg(webhook_url: str, version: str,log_url: str,error_msg: str) -> str:
-    """Send a interop test complete message"""
+def send_interop_test_error_msg(webhook_url: str, msg_id: str,layered_version: str,openshit_version: str,external_build_index_url: str,external_build_index_id: str,log_url: str,error_msg: str) -> str:
+    """Send a interop test error message"""
     msg = {
       "artifact": {
-      "id": "4875",
-      "products": [
-        {
-          "architecture": "x86_64",
-          "artifacts": [],
-          "build": "GA",
-          "id": "",
-          "name": "openshift-pipelines",
-          "nvr": "openshift-pipelines-"+version,
-          "phase": "testing",
-          "release": "",
-          "repos": [],
-          "state": "interop ready",
-          "type": "product-build",
-          "version": version
-        },
-        {
-          "architecture": "x86_64",
-          "artifacts": [],
-          "build": "RC1.0",
-          "id": "RHEL-8.4.0-20210409.0",
-          "image": "RHEL-8.4.0-20210409.0-x86_64",
-          "name": "rhel",
-          "nvr": "RHEL-8.4.0-20210409.0",
-          "phase": "testing",
-          "release": "",
-          "repos": [
-            {
-              "base_url": "http://download.eng.bos.redhat.com/rhel-8/rel-eng/RHEL-8/RHEL-8.4.0-20210409.0/compose/BaseOS/x86_64/os",
-              "name": "baseos"
-            },
-            {
-              "base_url": "http://download.eng.bos.redhat.com/rhel-8/rel-eng/RHEL-8/RHEL-8.4.0-20210409.0/compose/AppStream/x86_64/os",
-              "name": "appstream"
-            }
-          ],
-          "state": "interop ready",
-          "type": "product-build",
-          "version": "8.4.0"
-        }
-      ],
-      "type": "product-scenario"
-    },
-    "contact": {
-      "docs": "https://docs.engineering.redhat.com/display/PIT/Interoperability+Testing+Team",
-      "email": "psi-pipelines@redhat.com",
-      "name": "Openshift Pipelines",
-      "team": "Openshift Pipelines",
-      "url": "https://docs.engineering.redhat.com/display/PIT/Interoperability+Testing+Team"
-    },
-    "error": {
-      "reason": error_msg
-    },
-    "generated_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"),
-    "run": {
-      "log": log_url,
-      "url": log_url+"/console"
-    },
-    "test": {
-      "category": "interoperability",
-      "namespace": "interop",
-      "type": "product-scenario"
-    },
-    "version": "0.2.2"
+        "id": msg_id,
+        "products": [
+          {
+            "architecture": "x86_64",
+            "artifacts": [],
+            "build": "GA",
+            "id": "",
+            "name": "openshift-pipelines",
+            "nvr": "openshift-pipelines-"+layered_version,
+            "phase": "testing",
+            "release": "",
+            "state": "interop ready",
+            "type": "product-build",
+            "version": layered_version
+          },
+          {
+            "architecture": "x86_64",
+            "artifacts": [],
+            "build": "nightly",
+            "build_index_url": external_build_index_url,
+            "id": external_build_index_id,
+            "name": "openshift",
+            "nvr": "openshift-"+openshit_version,
+            "phase": "testing",
+            "release": "",
+            "state": "interop ready",
+            "type": "product-build",
+            "version": openshit_version
+          }
+        ],
+        "type": "product-scenario"
+      },
+      "contact": {
+        "docs": "https://docs.engineering.redhat.com/display/PIT/Interoperability+Testing+Team",
+        "email": "pit-qe@redhat.com",
+        "name": "PIQE Interop",
+        "team": "PIQE Interop",
+        "url": "https://docs.engineering.redhat.com/display/PIT/Interoperability+Testing+Team"
+      },
+      "error": {
+        "reason": error_msg
+      },
+      "generated_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"),
+      "run": {
+        "log": log_url,
+        "url": log_url+"/console"
+      },
+      "test": {
+        "category": "interoperability",
+        "namespace": "interop",
+        "type": "product-scenario"
+      },
+      "version": "0.2.2"
     }
 
     data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.error", "message": msg}
@@ -224,6 +202,10 @@ def main() -> int:
     """Main"""
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--msg-id",
+                        default=os.environ.get("MSG_ID"),
+                        help="Provide msg id")
+
     parser.add_argument("--log-url",
                         default=os.environ.get("LOG_URL"),
                         help="Link to the log url")
@@ -231,10 +213,23 @@ def main() -> int:
     parser.add_argument("--pipelinerun",
                         default=os.environ.get("PIPELINERUN"),
                         help="The pipelinerun to check the status on")
-
-    parser.add_argument("--version",
-                        default=os.environ.get("VERSION"),
+  
+    parser.add_argument("--layered-version",
+                        default=os.environ.get("LAYERED_VERSION"),
                         help="The Layered product version")
+
+    parser.add_argument("--openshift-version",
+                        default=os.environ.get("OPENSHIFT_VERSION"),
+                        help="The Opesnhift product version")
+
+    parser.add_argument("--openshift-build-url",
+                        default=os.environ.get("OPENSHIFT_BUILD_URL"),
+                        help="The Opesnhift external build url")                                        
+
+    parser.add_argument("--openshift-build-id",
+                        default=os.environ.get("OPENSHIFT_BUILD_ID"),
+                        help="The Opesnhift external build id")
+
 
     parser.add_argument("--xunit-urls",
                         default=os.environ.get("XUNIT_URLS"),
@@ -251,9 +246,9 @@ def main() -> int:
         )
         return 1
 
-    if not args.version:
+    if not args.layered_version:
         print(
-            "error --version need to be set via env env variable or other means."
+            "error --layered-version need to be set via env env variable or other means."
         )
         return 1
 
@@ -273,11 +268,11 @@ def main() -> int:
 
     if failures:
         error_msg = f"""• *Failed Tasks*: {", ".join(failures)}\n"""
-        ret = send_interop_test_error_msg(args.umb_webhook_url,args.version,args.log_url,error_msg)
+        ret = send_interop_test_error_msg(args.umb_webhook_url,args.msg_id,args.layered_version,args.openshift_version,args.openshift_build_url,args.openshift_build_id,args.log_url,error_msg)
         if ret:
             print(ret)
     elif args.xunit_urls:
-        ret = send_interop_test_complete_msg(args.umb_webhook_url, args.version,args.log_url,args.xunit_urls)
+        ret = send_interop_test_complete_msg(args.umb_webhook_url,args.msg_id,args.layered_version,args.openshift_version,args.openshift_build_url,args.openshift_build_id,args.log_url,args.xunit_urls)
         if ret:
             print(ret)
 

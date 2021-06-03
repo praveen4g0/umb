@@ -5,8 +5,11 @@ metadata:
 spec:
   params:
     - name: architecture
-    - name: ocp_build
+    - name: external_build_index_url
+    - name: external_build_id
+    - name: msg_id
     - name: layered_product_version
+    - name: ocp_build
     - name: ocp_version
     - name: template_version
   resourcetemplates:
@@ -71,6 +74,9 @@ spec:
 
                       trap produce_results ERR EXIT
                       echo "$(tt.params.architecture)"
+                      echo "$(tt.params.msg_id)"
+                      echo "$(tt.params.external_build_index_url)"
+                      echo "$(tt.params.external_build_id)"
                       echo "dev-preview/$(tt.params.ocp_build)"
                       echo "$(tt.params.layered_product_version)"
                       echo "$(tt.params.ocp_version)"
@@ -125,13 +131,21 @@ spec:
                           fieldPath: metadata.labels['tekton.dev/pipelineRun'] 
                     - name: LOG_URL
                       value: "openshift"
-                    - name: VERSION
+                    - name: MSG_ID
+                      value: $(tt.params.msg_id)
+                    - name: LAYERED_VERSION
                       value: $(tt.params.layered_product_version)
+                    - name: OPENSHIFT_VERSION
+                      value: $(tt.params.ocp_version)
+                    - name: OPENSHIFT_BUILD_URL
+                      value: $(tt.params.external_build_index_url)
+                    - name: OPENSHIFT_BUILD_ID
+                      value: $(tt.params.external_build_id)     
                     - name: XUNIT_URLS
                       value: $(params.artifacts)
                     - name: KUBECONFIG
                       value: $(workspaces.kubeconfig.path)/kubeconfig  
-                  image: quay.io/praveen4g0/umb-notifier:latest
+                  image: quay.io/praveen4g0/umb-notifier:v0.0.6
                   command: ["/code/send-umb-interop-notifier.py"]
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
@@ -194,6 +208,9 @@ spec:
 
                       trap produce_results ERR EXIT
                       echo "$(tt.params.architecture)"
+                      echo "$(tt.params.msg_id)"
+                      echo "$(tt.params.external_build_index_url)"
+                      echo "$(tt.params.external_build_id)"
                       echo "dev-preview/$(tt.params.ocp_build)"
                       echo "$(tt.params.layered_product_version)"
                       echo "$(tt.params.ocp_version)"
@@ -223,11 +240,19 @@ spec:
                           fieldPath: metadata.labels['tekton.dev/pipelineRun'] 
                     - name: LOG_URL
                       value: "openshift"
-                    - name: VERSION
+                    - name: MSG_ID
+                      value: $(tt.params.msg_id)
+                    - name: LAYERED_VERSION
                       value: $(tt.params.layered_product_version)
+                    - name: OPENSHIFT_VERSION
+                      value: $(tt.params.ocp_version)
+                    - name: OPENSHIFT_BUILD_URL
+                      value: $(tt.params.external_build_index_url)
+                    - name: OPENSHIFT_BUILD_ID
+                      value: $(tt.params.external_build_id)     
                     - name: XUNIT_URLS
                       value: $(params.artifacts)
                     - name: KUBECONFIG
                       value: $(workspaces.kubeconfig.path)/kubeconfig  
-                  image: quay.io/praveen4g0/umb-notifier:latest
+                  image: quay.io/praveen4g0/umb-notifier:v0.0.6
                   command: ["/code/send-umb-interop-notifier.py"]

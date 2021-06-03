@@ -11,16 +11,16 @@ spec:
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
       metadata:
-        generateName: openshift-pipelines-acceptance-tests-
+        generateName: nightly-acceptance-tests-
       spec:
         pipelineRef:
-          name: openshift-pipelines-acceptance-tests
+          name: acceptance-tests
         timeout: 3h
         params:
         - name: BOOTSTRAP_IMAGE
           value: quay.io/praveen4g0/release-tests-bootstrap-image:v1.2.0
         - name: CLUSTER_NAME
-          value: ni8lyci-$(context.pipelineRun.uid)
+          value: ni8lyci
         - name: CATALOG_SOURCE
           value: nightly-operators
         - name: CHANNEL
