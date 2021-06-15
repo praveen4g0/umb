@@ -1,6 +1,6 @@
-PN_TRACE_FRM=1 amq-producer --env prod --certificate-file consumer/config/psi-pipelines-robot.crt \
-             --private-key consumer/config/psi-pipelines-robot.key  \
-             --ca-certs consumer/config/RH-IT-Root-CA.crt \
+PN_TRACE_FRM=1 amq-producer --env prod --certificate-file ./../consumer/config/psi-pipelines-robot.crt \
+             --private-key ./../consumer/config/psi-pipelines-robot.key  \
+             --ca-certs ./../consumer/config/RH-IT-Root-CA.crt \
              --topic 'VirtualTopic.qe.ci.product-scenario.pipelinesf2f.build.complete' \
              --subject ocp-testing \
              "{\"artifact\":{\"id\":\"19834\",\"products\":[{\"architecture\":\"x86_64\",\"artifacts\":[],\"build\":\"GA\",\"id\":\"\",\"name\":\"openshift-pipelines\",\"nvr\":\"openshift-pipelines-1.4\",\"phase\":\"testing\",\"release\":\"\",\"state\":\"interop ready\",\"type\":\"product-build\",\"version\":\"1.4\"},{\"architecture\":\"x86_64\",\"artifacts\":[],\"build\":\"nightly\",\"external_build_index_url\":\"https:\/\/mirror.openshift.com\/pub\/openshift-v4\/clients\/ocp-dev-preview\/latest-4.8\/\",\"id\":\"4.8.0-0.nightly-latest\",\"internal_build_index_url\":\"n\/a\",\"name\":\"openshift\",\"nvr\":\"openshift-4.8\",\"phase\":\"testing\",\"release\":\"\",\"state\":\"interop ready\",\"type\":\"product-build\",\"version\":\"4.8\"}],\"type\":\"product-scenario\"},\"contact\":{\"docs\":\"https:\/\/docs.engineering.redhat.com\/display\/PIT\/Interoperability+Testing+Team\",\"email\":\"pit-qe@redhat.com\",\"name\":\"PIQE Interop\",\"team\":\"PIQE Interop\",\"url\":\"https:\/\/docs.engineering.redhat.com\/display\/PIT\/Interoperability+Testing+Team\"},\"generated_at\":\"2021-05-26T19:37:46.656220\",\"system\":[{\"architecture\":\"\",\"os\":\"\",\"provider\":\"\"}],\"version\":\"0.2.2\"}"
