@@ -128,7 +128,11 @@ spec:
                     - name: PIPELINERUN
                       valueFrom:
                         fieldRef:
-                          fieldPath: metadata.labels['tekton.dev/pipelineRun'] 
+                          fieldPath: metadata.labels['tekton.dev/pipelineRun']
+                    - name: NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
                     - name: LOG_URL
                       value: "openshift"
                     - name: MSG_ID
@@ -145,7 +149,7 @@ spec:
                       value: $(params.artifacts)
                     - name: KUBECONFIG
                       value: $(workspaces.kubeconfig.path)/kubeconfig  
-                  image: quay.io/praveen4g0/umb-notifier:v0.0.6
+                  image: quay.io/praveen4g0/umb-notifier:v0
                   command: ["/code/send-umb-interop-notifier.py"]
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
@@ -237,7 +241,11 @@ spec:
                     - name: PIPELINERUN
                       valueFrom:
                         fieldRef:
-                          fieldPath: metadata.labels['tekton.dev/pipelineRun'] 
+                          fieldPath: metadata.labels['tekton.dev/pipelineRun']
+                    - name: NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace      
                     - name: LOG_URL
                       value: "openshift"
                     - name: MSG_ID
@@ -254,5 +262,5 @@ spec:
                       value: $(params.artifacts)
                     - name: KUBECONFIG
                       value: $(workspaces.kubeconfig.path)/kubeconfig  
-                  image: quay.io/praveen4g0/umb-notifier:v0.0.6
+                  image: quay.io/praveen4g0/umb-notifier:v0
                   command: ["/code/send-umb-interop-notifier.py"]

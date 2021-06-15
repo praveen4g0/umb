@@ -28,10 +28,10 @@ def get_openshift_console_url(namespace: str) -> str:
         )
     return f"https://{ret.stdout.decode()}/k8s/ns/{namespace}/tekton.dev~v1beta1~PipelineRun/"
 
-def get_json_of_pipelinerun(pipelinerun: str) -> typing.Dict[str, typing.Dict]:
+def get_json_of_pipelinerun(pipelinerun: str,namespace: str) -> typing.Dict[str, typing.Dict]:
     """Find which namespace where we are running currently by checking the
     pipelinerun namespace"""
-    cmd = f"oc get pipelinerun {pipelinerun} -o json"
+    cmd = f"oc get pipelinerun {pipelinerun} -n {namespace} -o json"
     ret = subprocess.run(cmd, shell=True, check=True, capture_output=True)
     if ret.returncode != 0:
         raise UMBNotificationError(f"Could not run command: {cmd}")
@@ -121,7 +121,7 @@ def send_interop_test_complete_msg(webhook_url: str, msg_id: str,layered_version
       },
       "version": "0.2.2"
     }
-    data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.complete", "message": msg}
+    data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.pipelinesf2f.test.complete", "message": msg}
   
     req = urllib.request.Request(webhook_url,
                                  data=json.dumps(data).encode(),
@@ -189,7 +189,7 @@ def send_interop_test_error_msg(webhook_url: str, msg_id: str,layered_version: s
       "version": "0.2.2"
     }
 
-    data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.error", "message": msg}
+    data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.pipelinesf2f.test.error", "message": msg}
   
     req = urllib.request.Request(webhook_url,
                                  data=json.dumps(data).encode(),
@@ -213,6 +213,10 @@ def main() -> int:
     parser.add_argument("--pipelinerun",
                         default=os.environ.get("PIPELINERUN"),
                         help="The pipelinerun to check the status on")
+
+    parser.add_argument("--namespace",
+                        default=os.environ.get("NAMESPACE"),
+                        help="Namespace on which resources exists")                    
   
     parser.add_argument("--layered-version",
                         default=os.environ.get("LAYERED_VERSION"),
@@ -258,7 +262,7 @@ def main() -> int:
         )
         return 1
 
-    jeez = get_json_of_pipelinerun(args.pipelinerun)
+    jeez = get_json_of_pipelinerun(args.pipelinerun,args.namespace)
     failures = check_status_of_pipelinerun(jeez)
 
     if args.log_url and args.log_url == "openshift":

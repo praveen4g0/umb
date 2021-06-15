@@ -1,4 +1,14 @@
-# umb
+# UMB external system triggering gating service
+
+## context
+![Context](docs/diagrams/context-umb.png)
+
+## Design overview
+UMB integration with qe platform
+
+![Overview](docs/diagrams/umb-design.png)
+
+## Run locally
 
 * To run locally use podman/docker to build image
 ```
@@ -14,10 +24,25 @@ docker run -it --network=host <image-name> /bin/bash
 ```
 ## Producer service
 * You can find implementation code under `producer` section
-* As of now we support route `produce`
+* As of now we expose `produce` service as an api(with edge termination `https`)
     1. will help user to produce messages to required topic. (`POST`)
 
 * Now you can deploy this services on any openshift cluster deployed behind the vpn! (psi)
+
+* Now user should be able to post json or text message to any topic
+
+```
+ > curl -X POST -H 'Content-Type: application/json' <umb-service-route-url>/produce -d '{"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.complete", "message": {}}'               
+```
+
+*Response:* 
+
+```
+{
+    "Message": "message sent successfully! to topic topic://VirtualTopic.qe.ci.product-scenario.test.complete"
+}
+
+```
 
 ### Pre-requistes
 - setup configmaps & secrets prior
@@ -58,19 +83,6 @@ oc get route umb-service --template='http://{{.spec.host}}'
 
 ```
 
-* Now user should be able to post message json or text message to any topic
-
-```
- curl -X POST -H 'Content-Type: application/json' <umb-service-route-url>/produce -d '{"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.complete", "message": {}}'               
-
-Response: 
-
-{
-    "Message": "message sent successfully! to topic topic://VirtualTopic.qe.ci.product-scenario.test.complete"
-}
-
-```
-
 ## UMB notifications
 You can easily produce a message to UMB topic to notify if your pipeline has failed or run sucessfully. There is a script in `misc/send-umb-interop-notifier.py` or `misc/send-umb-iib-notifier.py` that can help you with that, with the help of the finally tasks in your pipeline.
 
@@ -98,7 +110,11 @@ At the end of your pipeline add this block :
             - name: PIPELINERUN
               valueFrom:
                 fieldRef:
-                  fieldPath: metadata.labels['tekton.dev/pipelineRun'] 
+                  fieldPath: metadata.labels['tekton.dev/pipelineRun']
+            - name: NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace      
             - name: LOG_URL
               value: "openshift"
             - name: VERSION
@@ -114,7 +130,7 @@ At the end of your pipeline add this block :
 
 ## How to use?
 
-* Here is, sample [resources](demo/dummy-resources) to guide you, how to settup pipelines by consuming umb services.
+* Here is, sample [resources](demo/dummy-resources) to guide you, how to setup pipelines by consuming umb services.
 
 * Apply trigger resources
 ```
