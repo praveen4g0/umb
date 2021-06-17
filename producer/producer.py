@@ -79,7 +79,11 @@ class UMBMessageProducer(MessagingHandler):
             # creates sender link to transfer message to the broker
             event.container.create_sender(conn, target=self.topic_address)
             self._logger.info("{0}: created a link to senders to topic {1}".format(threading.currentThread().getName(),self.topic_address))
-   
+    
+    def on_link_opened(self, event):
+        self._logger.info("{0} SEND: Opened sender for target address '{1}'".format
+              (threading.currentThread().getName(),event.sender.target.address))
+        
     def on_sendable(self, event):
         if isinstance(self.message,str):
             event.sender.send(Message(body=self.message,durable=True))

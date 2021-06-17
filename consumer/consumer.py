@@ -4,8 +4,8 @@ import collections
 import concurrent.futures.thread
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from proton.handlers import MessagingHandler
-from proton.reactor import Container, Selector
-from proton import SSLDomain, Message
+from proton.reactor import Container, Selector, ReceiverOption
+from proton import SSLDomain, Message, Terminus, symbol
 import json
 from jsonpath_rw import jsonpath, parse
 import logging
@@ -133,9 +133,6 @@ class UmbReader(MessagingHandler):
         seperator = '' if self.consumer.endswith('.') else '.'
         return '{}{}{}'.format(self.consumer, seperator, self.topic)
 
-    def get_selector(self):
-        return None
-
     def on_start(self, event):
         domain = SSLDomain(SSLDomain.MODE_CLIENT)
         domain.set_credentials(self.cert, self.key, None)
@@ -143,10 +140,12 @@ class UmbReader(MessagingHandler):
         source = self.get_consumer_queue_str()
         if conn:
             event.container.create_receiver(conn, source=source,
-                                            options=self.get_selector())
+                                            options=SubscriptionOptions())
             self._logger.info("{0} Subscribed to topic {1}".format(threading.currentThread().getName(),source))
-        
 
+    def on_link_opened(self, event):
+        self._logger.info("{0} SUBSCRIBE: Opened receiver for source address '{1}'".format(threading.currentThread().getName(),event.receiver.source.address))     
+    
     def on_message(self, event):
         try:
             self._logger.info(type(event.message.body))
@@ -154,7 +153,25 @@ class UmbReader(MessagingHandler):
         except Exception:
             self._logger.error("{0}: Could Not Process Event, Will Ignore. Error Info:".format(threading.currentThread().getName()),
                                exc_info=True)
-  
+
+    # the on_transport_error event catches socket and authentication failures
+    def on_transport_error(self, event):
+        self._logger.info("{0} Transport error: {1}".format(threading.currentThread().getName(),event.transport.condition))
+        MessagingHandler.on_transport_error(self, event) 
+
+# Configure the receiver source for durability
+class SubscriptionOptions(ReceiverOption):
+    def apply(self, receiver):
+        # Global means shared across clients (distinct container IDs)
+        # receiver.source.capabilities.put_object(symbol("shared"))
+        # receiver.source.capabilities.put_object(symbol("global"))
+
+        # Preserve unsettled delivery state
+        receiver.source.durability = Terminus.DELIVERIES
+        # Don't expire the source
+        receiver.source.expiry_policy = Terminus.EXPIRE_NEVER
+        # In Comming Future we can add selector here. 
+        # receiver.source.selector = None
 
 def setup_logging(verbose):
     level = logging.DEBUG if verbose else logging.INFO
