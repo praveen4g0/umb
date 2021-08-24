@@ -5,8 +5,11 @@ metadata:
 spec:
   params:
     - name: architecture
-    - name: ocp_build
+    - name: external_build_index_url
+    - name: external_build_id
+    - name: msg_id
     - name: layered_product_version
+    - name: ocp_build
     - name: ocp_version
     - name: template_version
   resourcetemplates:
@@ -15,67 +18,79 @@ spec:
       metadata:
         generateName: openshift-pipelines-acceptance-tests-
       spec:
-        pipelineRef:
-          name: openshift-pipelines-acceptance-tests
-        timeout: 3h
         params:
-        - name: ARCH
-          value: $(tt.params.architecture)
-        - name: BOOTSTRAP_IMAGE
-          value: quay.io/praveen4g0/release-tests-bootstrap-image:v1.2.0
-        - name: CLUSTER_NAME
-          value: qeci
-        - name: CATALOG_SOURCE
-          value: redhat-operators
-        - name: CHANNEL
-          value: stable
-        - name: IS_DISCONNECTED
-          value: "false"  
-        - name: INDEX
-          value: $(tt.params.layered_product_version)
-        - name: LAUNCHER_VARS
-          value: >-
-            {
-            "dns_solution":"route53",
-            "num_workers":2
-            }
-        - name: MIRROR_REGISTRY
-          value: "quay.io"
-        - name: OPENSHIFT_VERSION
-          value: dev-preview/$(tt.params.ocp_build)
-        - name: OPERATOR_ENVIRONMENT
-          value: prod
-        - name: RELEASE_TESTS_IMAGE
-          value: quay.io/praveen4g0/release-tests:4.6.6
-        - name: RELEASE_TESTS_BRANCH
-          value: release-v$(tt.params.layered_product_version)
-        - name: TEMPLATE
-          value: private-templates/functionality-testing/aos-$(tt.params.template_version)/ipi-on-aws/versioned-installer    
-        - name: TUTORIAL_BRANCH
-          value: pipelines-$(tt.params.layered_product_version)
+          - name: ARCH
+            value: $(tt.params.architecture)
+          - name: BOOTSTRAP_IMAGE
+            value: 'quay.io/praveen4g0/release-tests-bootstrap-image:v1.2.0'
+          - name: CLUSTER_NAME
+            value: qeci
+          - name: CATALOG_SOURCE
+            value: redhat-operators
+          - name: CHANNEL
+            value: stable
+          - name: EXTERNAL_BUILD_URL
+            value: $(tt.params.external_build_index_url)
+          - name: EXTERNAL_BUILD_ID
+            value: $(tt.params.external_build_id)
+          - name: IS_DISCONNECTED
+            value: 'false'
+          - name: INDEX
+            value: $(tt.params.layered_product_version)
+          - name: LAUNCHER_VARS
+            value: '{ "dns_solution":"route53", "num_workers":2 }'
+          - name: MIRROR_REGISTRY
+            value: quay.io
+          - name: MSG_ID
+            value: $(tt.params.msg_id)
+          - name: LAYERED_VERSION
+            value: $(tt.params.layered_product_version)
+          - name: OCP_VERSION
+            value: $(tt.params.ocp_version)
+          - name: OPENSHIFT_VERSION
+            value: dev-preview/$(tt.params.ocp_build)
+          - name: OPERATOR_ENVIRONMENT
+            value: prod
+          - name: RELEASE_TESTS_IMAGE
+            value: 'quay.io/praveen4g0/release-tests:4.6.6'
+          - name: RELEASE_TESTS_BRANCH
+            value: release-v$(tt.params.layered_product_version)
+          - name: TEMPLATE
+            value: >-
+              private-templates/functionality-testing/aos-$(tt.params.template_version)/ipi-on-aws/versioned-installer
+          - name: TUTORIAL_BRANCH
+            value: pipelines-$(tt.params.layered_product_version)
+        pipelineRef:
+          name: acceptance-tests-interop
+        timeout: 3h
         workspaces:
-        - name: authfile
-          secret:
-            secretName: openshift-install
-        - name: flexy-secrets
-          secret:
-            secretName: flexy
-        - name: install-dir
-          persistentVolumeClaim:
-            claimName: install-dir
-        - name: git
-          volumeClaimTemplate:
-            spec:
-              accessModes:
-                - ReadWriteOnce
-              resources:
-                requests:
-                  storage: 200Mi
-        - name: p12n-artifacts
-          volumeClaimTemplate:
-            spec:
-              accessModes:
-                - ReadWriteOnce
-              resources:
-                requests:
-                  storage: 10Mi          
+          - name: authfile
+            secret:
+              secretName: openshift-install
+          - name: kubeconfig
+            secret:
+              secretName: kubeconfig
+          - name: flexy-secrets
+            secret:
+              secretName: flexy
+          - name: install-dir
+            persistentVolumeClaim:
+              claimName: install-dir
+          - name: git
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteMany
+                resources:
+                  requests:
+                    storage: 200Mi
+                storageClassName: csi-manila-ceph
+          - name: build-artifacts
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteMany
+                resources:
+                  requests:
+                    storage: 10Mi
+                storageClassName: csi-manila-ceph

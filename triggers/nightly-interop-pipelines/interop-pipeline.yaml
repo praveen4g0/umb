@@ -1,0 +1,485 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: acceptance-tests-interop
+spec:
+  finally:
+    - name: flexy-uninstall
+      params:
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+      taskRef:
+        kind: Task
+        name: flexy-uninstall
+      workspaces:
+        - name: flexy-secrets
+          workspace: flexy-secrets
+        - name: install-dir
+          workspace: install-dir
+    - name: send-interop-notification
+      params:
+        - name: artifacts
+          value: $(tasks.generate-ids.results.url)/metrics-e2e.xml,$(tasks.generate-ids.results.url)/olm-install.xml,$(tasks.generate-ids.results.url)/pipelines-e2e.xml,$(tasks.generate-ids.results.url)/triggers-e2e.xml,$(tasks.generate-ids.results.url)/triggers-tls.xml
+        - name: MSG_ID
+          value: $(params.MSG_ID)
+        - name: LAYERED_VERSION
+          value: $(params.LAYERED_VERSION)
+        - name: OCP_VERSION
+          value: $(params.OCP_VERSION)
+        - name: EXTERNAL_BUILD_URL
+          value: $(params.EXTERNAL_BUILD_URL)
+        - name: EXTERNAL_BUILD_ID
+          value: $(params.EXTERNAL_BUILD_ID)
+      taskSpec:
+        metadata: {}
+        params:
+          - description: artifatcs of previous taskruns
+            name: artifacts
+            type: string
+          - name: MSG_ID
+            type: string
+          - name: LAYERED_VERSION
+            type: string
+          - name: OCP_VERSION
+            type: string
+          - name: EXTERNAL_BUILD_URL
+            type: string
+          - name: EXTERNAL_BUILD_ID
+            type: string
+        steps:
+          - command:
+              - /code/send-umb-interop-notifier.py
+            env:
+              - name: UMB_WEBHOOK_URL
+                value: >-
+                  http://umb-service-umb.apps.cicd.tekton.codereadyqe.com/produce
+              - name: PIPELINERUN
+                valueFrom:
+                  fieldRef:
+                    fieldPath: 'metadata.labels[''tekton.dev/pipelineRun'']'
+              - name: NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace
+              - name: LOG_URL
+                value: openshift
+              - name: MSG_ID
+                value: $(params.MSG_ID)
+              - name: LAYERED_VERSION
+                value: $(params.LAYERED_VERSION)
+              - name: OPENSHIFT_VERSION
+                value: $(params.OCP_VERSION)
+              - name: OPENSHIFT_BUILD_URL
+                value: $(params.EXTERNAL_BUILD_URL)
+              - name: OPENSHIFT_BUILD_ID
+                value: $(params.EXTERNAL_BUILD_ID)
+              - name: XUNIT_URLS
+                value: $(params.artifacts)
+              - name: KUBECONFIG
+                value: $(workspaces.kubeconfig.path)/kubeconfig
+            image: 'quay.io/praveen4g0/umb-notifier:v1'
+            name: send-umb-notification
+            resources: {}
+        workspaces:
+          - name: kubeconfig
+      workspaces:
+        - name: kubeconfig
+          workspace: kubeconfig
+  params:
+    - default: linux/amd64
+      description: artifacts architecture
+      name: ARCH
+      type: string
+    - name: BOOTSTRAP_IMAGE
+      type: string
+    - default: redhat-operators
+      description: provide catalog-source name through which user have to subscribe operator
+      name: CATALOG_SOURCE
+      type: string
+    - description: Cluster Name
+      name: CLUSTER_NAME
+      type: string
+    - default: stable
+      description: subscription channel
+      name: CHANNEL
+      type: string
+    - default: https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/latest-4.8/
+      description: external build url
+      name: EXTERNAL_BUILD_URL
+      type: string
+    - default: 4.8.0-0.nightly-latest
+      description: external build id
+      name: EXTERNAL_BUILD_ID
+      type: string
+    - default: master
+      name: GIT_PRIVATE_TEMPLATES_BRANCH
+      type: string
+    - default: 'https://gitlab.cee.redhat.com/aosqe/flexy-templates.git'
+      name: GIT_PRIVATE_TEMPLATES_URI
+      type: string
+    - default: 'false'
+      description: flag to decide if provisioned cluster is disconnected
+      name: IS_DISCONNECTED
+      type: string
+    - default: ''
+      description: specify index image (eg:42312,...), leave empty if OPERATOR_ENVIRONMENT is prod
+      name: INDEX
+      type: string
+    - default: ''
+      name: LAUNCHER_VARS
+      type: string
+    - default: quay.io
+      description: Provide mirror registry details.
+      name: MIRROR_REGISTRY
+      type: string
+    - default: '19901'
+      description: Provide interop build message Id
+      name: MSG_ID
+      type: string
+    - default: '1.4'
+      description: layered product verison
+      name: LAYERED_VERSION
+      type: string
+    - default: '4.8'
+      description: openshift release verison number
+      name: OCP_VERSION
+      type: string
+    - name: OPENSHIFT_VERSION
+      type: string
+    - description: 'specify p12n operator environment (e.g. prod, stage, pre-stage)'
+      name: OPERATOR_ENVIRONMENT
+      type: string
+    - description: release-tests latest image
+      name: RELEASE_TESTS_IMAGE
+      type: string
+    - description: placeholder to provide release-tests branch (default-> master)
+      name: RELEASE_TESTS_BRANCH
+      type: string
+    - name: TEMPLATE
+      type: string
+    - default: master
+      name: TUTORIAL_BRANCH
+      type: string
+  tasks:
+    - name: generate-ids
+      params:
+        - name: CLUSTER_NAME_PREFIX
+          value: $(params.CLUSTER_NAME)
+        - name: RUN_NAME
+          value: $(context.pipelineRun.name)
+      taskRef:
+        kind: Task
+        name: generate-ids
+    - name: provision-cluster
+      params:
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+        - name: GIT_PRIVATE_TEMPLATES_BRANCH
+          value: $(params.GIT_PRIVATE_TEMPLATES_BRANCH)
+        - name: GIT_PRIVATE_TEMPLATES_URI
+          value: $(params.GIT_PRIVATE_TEMPLATES_URI)
+        - name: LAUNCHER_VARS
+          value: $(params.LAUNCHER_VARS)
+        - name: OPENSHIFT_VERSION
+          value: $(params.OPENSHIFT_VERSION)
+        - name: TEMPLATE
+          value: $(params.TEMPLATE)
+      runAfter:
+        - generate-ids
+      taskRef:
+        kind: Task
+        name: flexy-install
+      workspaces:
+        - name: flexy-secrets
+          workspace: flexy-secrets
+        - name: install-dir
+          workspace: install-dir
+    - name: clone-plumbing-git
+      params:
+        - name: url
+          value: 'https://gitlab.cee.redhat.com/tekton/plumbing.git'
+        - name: deleteExisting
+          value: 'true'
+        - name: sslVerify
+          value: 'false'
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          subPath: plumbing-git
+          workspace: git
+    - name: clone-release-tests
+      params:
+        - name: url
+          value: 'https://github.com/openshift-pipelines/release-tests.git'
+        - name: deleteExisting
+          value: 'true'
+        - name: sslVerify
+          value: 'false'
+        - name: revision
+          value: $(params.RELEASE_TESTS_BRANCH)
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          subPath: release-tests-git
+          workspace: git
+    - name: clone-tutorial-git
+      params:
+        - name: url
+          value: 'https://github.com/openshift/pipelines-tutorial.git'
+        - name: deleteExisting
+          value: 'true'
+        - name: sslVerify
+          value: 'false'
+        - name: revision
+          value: $(params.TUTORIAL_BRANCH)
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          subPath: tutorial-git
+          workspace: git
+    - name: setup-testing-accounts
+      params:
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+      runAfter:
+        - provision-cluster
+        - clone-plumbing-git
+        - clone-release-tests
+        - clone-tutorial-git
+      taskRef:
+        kind: Task
+        name: setup-testing-accounts
+      workspaces:
+        - name: install-dir
+          workspace: install-dir
+        - name: plumbing-git
+          subPath: plumbing-git
+          workspace: git
+    - conditions:
+        - conditionRef: check-for-operator-environment
+          params:
+            - name: OPERATOR_ENVIRONMENT
+              value: $(params.OPERATOR_ENVIRONMENT)
+      name: generate-build-artifacts
+      params:
+        - name: ARCH
+          value: $(params.ARCH)
+        - name: CATALOG_SOURCE
+          value: $(params.CATALOG_SOURCE)
+        - name: IS_DISCONNECTED
+          value: $(params.IS_DISCONNECTED)
+        - name: INDEX
+          value: $(params.INDEX)
+        - name: MIRROR_REGISTRY
+          value: $(params.MIRROR_REGISTRY)
+        - name: OPERATOR_ENVIRONMENT
+          value: $(params.OPERATOR_ENVIRONMENT)
+      runAfter:
+        - setup-testing-accounts
+      taskRef:
+        kind: Task
+        name: generate-build-artifacts
+      workspaces:
+        - name: build-artifacts
+          workspace: build-artifacts
+    - name: mirror-operator-images
+      params:
+        - name: IS_DISCONNECTED
+          value: $(params.IS_DISCONNECTED)
+        - name: MIRROR_REGISTRY
+          value: $(params.MIRROR_REGISTRY)
+        - name: OPERATOR_ENVIRONMENT
+          value: $(params.OPERATOR_ENVIRONMENT)
+      retries: 2
+      runAfter:
+        - generate-build-artifacts
+      taskRef:
+        kind: Task
+        name: mirror-operator-images
+      workspaces:
+        - name: build-artifacts
+          workspace: build-artifacts
+    - name: configure-operator
+      params:
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+        - name: CATALOG_SOURCE
+          value: $(params.CATALOG_SOURCE)
+        - name: IS_DISCONNECTED
+          value: $(params.IS_DISCONNECTED)
+        - name: OPERATOR_ENVIRONMENT
+          value: $(params.OPERATOR_ENVIRONMENT)
+      runAfter:
+        - mirror-operator-images
+      taskRef:
+        kind: Task
+        name: configure-operator
+      workspaces:
+        - name: build-artifacts
+          workspace: build-artifacts
+    - name: pipelines-operator-subscription
+      params:
+        - name: CATALOG_SOURCE
+          value: $(params.CATALOG_SOURCE)
+        - name: CHANNEL
+          value: $(params.CHANNEL)
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+        - name: IMAGE
+          value: $(params.RELEASE_TESTS_IMAGE)
+        - name: RUN_AS
+          value: admin
+        - name: SPECS
+          value: specs/olm.spec
+        - name: TAGS
+          value: install
+        - name: UPLOAD_PATH
+          value: $(tasks.generate-ids.results.path)
+      runAfter:
+        - configure-operator
+      taskRef:
+        kind: Task
+        name: release-tests
+      workspaces:
+        - name: install-dir
+          workspace: install-dir
+        - name: release-tests-git
+          subPath: release-tests-git
+          workspace: git
+    - name: metrics-tests
+      params:
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+        - name: IMAGE
+          value: $(params.RELEASE_TESTS_IMAGE)
+        - name: RUN_AS
+          value: admin
+        - name: SPECS
+          value: specs/metrics/
+        - name: TAGS
+          value: e2e
+        - name: UPLOAD_PATH
+          value: $(tasks.generate-ids.results.path)
+      runAfter:
+        - pipelines-operator-subscription
+      taskRef:
+        kind: Task
+        name: release-tests
+      timeout: 30m0s
+      workspaces:
+        - name: install-dir
+          workspace: install-dir
+        - name: release-tests-git
+          subPath: release-tests-git
+          workspace: git
+    - name: release-tests-pipelines
+      params:
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+        - name: IMAGE
+          value: $(params.RELEASE_TESTS_IMAGE)
+        - name: RUN_AS
+          value: non-admin
+        - name: SPECS
+          value: specs/pipelines/
+        - name: TAGS
+          value: e2e
+        - name: UPLOAD_PATH
+          value: $(tasks.generate-ids.results.path)
+      retries: 1
+      runAfter:
+        - pipelines-operator-subscription
+      taskRef:
+        kind: Task
+        name: release-tests
+      timeout: 30m0s
+      workspaces:
+        - name: install-dir
+          workspace: install-dir
+        - name: release-tests-git
+          subPath: release-tests-git
+          workspace: git
+    - name: release-tests-triggers
+      params:
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+        - name: IMAGE
+          value: $(params.RELEASE_TESTS_IMAGE)
+        - name: RUN_AS
+          value: non-admin
+        - name: SPECS
+          value: specs/triggers/
+        - name: TAGS
+          value: e2e
+        - name: UPLOAD_PATH
+          value: $(tasks.generate-ids.results.path)
+      retries: 1
+      runAfter:
+        - pipelines-operator-subscription
+      taskRef:
+        kind: Task
+        name: release-tests
+      timeout: 30m0s
+      workspaces:
+        - name: install-dir
+          workspace: install-dir
+        - name: release-tests-git
+          subPath: release-tests-git
+          workspace: git
+    - name: tls-release-tests-triggers
+      params:
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+        - name: IMAGE
+          value: $(params.RELEASE_TESTS_IMAGE)
+        - name: RUN_AS
+          value: admin
+        - name: SPECS
+          value: specs/triggers/eventlistener.spec
+        - name: TAGS
+          value: tls
+        - name: UPLOAD_PATH
+          value: $(tasks.generate-ids.results.path)
+      retries: 1
+      runAfter:
+        - pipelines-operator-subscription
+      taskRef:
+        kind: Task
+        name: release-tests
+      timeout: 30m0s
+      workspaces:
+        - name: install-dir
+          workspace: install-dir
+        - name: release-tests-git
+          subPath: release-tests-git
+          workspace: git
+    - name: tutorial-tests
+      params:
+        - name: IMAGE
+          value: $(params.BOOTSTRAP_IMAGE)
+        - name: CLUSTER_NAME
+          value: $(tasks.generate-ids.results.cluster-name)
+      runAfter:
+        - pipelines-operator-subscription
+      taskRef:
+        kind: Task
+        name: tutorial-tests
+      timeout: 30m0s
+      workspaces:
+        - name: install-dir
+          workspace: install-dir
+        - name: tutorial-git
+          subPath: tutorial-git
+          workspace: git
+  workspaces:
+    - name: flexy-secrets
+    - name: kubeconfig
+    - name: git
+    - name: install-dir
+    - name: build-artifacts

@@ -9,10 +9,11 @@ spec:
       interceptors:
         - cel:
             overlays:
-            - key: template_version
-              expression: "body.artifact.products[1].version.replace('.','_')"
-            - key: ocp_build
-              expression: "body.artifact.products[1].external_build_index_url.split('/')[7]"
+            - expression: 'body.artifact.products[1].version.replace(''.'',''_'')'
+              key: template_version
+            - expression: >-
+                body.artifact.products[1].external_build_index_url.split('/')[7]
+              key: ocp_build
       bindings:
       - ref: interop-binding
       template:

@@ -4,13 +4,19 @@ metadata:
   name: interop-binding
 spec:
   params:
-  - name: architecture
-    value: $(body.artifact.products[1].architecture)
-  - name: ocp_build
-    value: $(extensions.ocp_build)
-  - name: ocp_version
-    value: $(body.artifact.products[1].version)
-  - name: layered_product_version
-    value: $(body.artifact.products[0].version)  
-  - name: template_version
-    value: $(extensions.template_version) 
+    - name: architecture
+      value: '$(body.artifact.products[1].architecture)'
+    - name: external_build_index_url
+      value: '$(body.artifact.products[1].external_build_index_url)'
+    - name: external_build_id
+      value: '$(body.artifact.products[1].id)'
+    - name: layered_product_version
+      value: '$(body.artifact.products[0].version)'
+    - name: msg_id
+      value: $(body.artifact.id)
+    - name: ocp_build
+      value: $(extensions.ocp_build)
+    - name: ocp_version
+      value: '$(body.artifact.products[1].version)'
+    - name: template_version
+      value: $(extensions.template_version)

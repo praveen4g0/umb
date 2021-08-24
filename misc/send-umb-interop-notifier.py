@@ -121,7 +121,7 @@ def send_interop_test_complete_msg(webhook_url: str, msg_id: str,layered_version
       },
       "version": "0.2.2"
     }
-    data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.pipelinesf2f.test.complete", "message": msg}
+    data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.complete", "message": msg}
   
     req = urllib.request.Request(webhook_url,
                                  data=json.dumps(data).encode(),
@@ -189,7 +189,7 @@ def send_interop_test_error_msg(webhook_url: str, msg_id: str,layered_version: s
       "version": "0.2.2"
     }
 
-    data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.pipelinesf2f.test.error", "message": msg}
+    data={"topic": "topic://VirtualTopic.qe.ci.product-scenario.test.error", "message": msg}
   
     req = urllib.request.Request(webhook_url,
                                  data=json.dumps(data).encode(),
