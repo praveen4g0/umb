@@ -1,0 +1,202 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: flexy-install
+spec:
+  workspaces:
+    - name: flexy-secrets
+    - name: install-dir
+  params:
+    - name: CLUSTER_NAME
+      description: Cluster name
+    - name: FLEXY_BRANCH
+      default: master
+    - name: FLEXY_URI
+      default: https://github.com/openshift/verification-tests.git
+    - name: GIT_PRIVATE_TEMPLATES_BRANCH
+      default: master
+    - name: GIT_PRIVATE_TEMPLATES_URI
+      default: https://gitlab.cee.redhat.com/aosqe/flexy-templates.git
+    - name: LAUNCHER_VARS
+      default: ""
+      description: JSON object with additional template configuration.
+    - name: OPENSHIFT_VERSION
+      default: stable
+      description: |
+        Choose one of the versions available on following URLs:
+          * https://mirror.openshift.com/pub/openshift-v4/clients/ocp
+          * https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview
+
+        Examples:
+          ""             use template's default value or image specified in LAUNCHER_VARS
+                         (need extra pull secret if using images from registry.svc.ci.openshift.org)
+          stable         latest stable release
+          stable-4.6     latest stable 4.6 release
+          fast-4.6       latest fast 4.6 release (supported, guaranteed to have an upgrade path in the future)
+          candidate-4.6  latest candidate 4.6 release (unsupported, might not be possible to upgrade)
+          4.5.20         specific stable release or release candidate
+          dev-preview/latest-4.7
+                         latest nightly 4.7 release (unsupported)
+          dev-preview/4.7.0-0.nightly-2020-11-25-114114
+                         specific nightly release (unsupported, will disappear after some time)
+    - name: OSD_ENV
+      default: stage
+      description: |
+        Environment in which the OSD cluster will be installed. Will be ignored when installing OCP.
+        One of stage/prod.
+    - name: TEMPLATE
+      default: private-templates/functionality-testing/aos-4_6/ipi-on-osp/versioned-installer
+      description: |
+        Flexy template that will be used for installation. Browse
+        https://gitlab.cee.redhat.com/aosqe/flexy-templates/-/tree/master/functionality-testing
+        for the list of all available templates.
+  steps:
+    - name: install-cluster
+      workingDir: /mnt
+      image: docker-registry.upshift.redhat.com/flexy/ocp4:v1.8
+      script: |
+        #!/usr/bin/env bash
+        set -o pipefail
+
+        [[ -z "$(params.CLUSTER_NAME)" ]] && \
+        echo "Cluster name cannot be empty" && exit 1
+
+        [[ -d "$(workspaces.install-dir.path)/$(params.CLUSTER_NAME)" ]] && \
+        echo "Error: OCP cluster already exists" && exit 1
+
+        echo "Preparing Flexy configuration"
+
+        while read line; do
+          if [ -z "$line" ]; then continue; fi
+          export "$line"
+        done < $(workspaces.flexy-secrets.path)/ENVIRONMENT
+
+        export BUSHSLICER_PRIVATE_DIR="$(pwd)/config"
+        export FLEXY_BRANCH="$(params.FLEXY_BRANCH)"
+        export FLEXY_URI="$(params.FLEXY_URI)"
+        export GIT_PRIVATE_TEMPLATES_BRANCH="$(params.GIT_PRIVATE_TEMPLATES_BRANCH)"
+        export GIT_PRIVATE_TEMPLATES_URI="$(params.GIT_PRIVATE_TEMPLATES_URI)"
+        export HOME=/home/jenkins
+        export INSTANCE_NAME_PREFIX="$(params.CLUSTER_NAME)"
+        export LAUNCHER_VARS='$(params.LAUNCHER_VARS)'
+        export VARIABLES_LOCATION="$(params.TEMPLATE)"
+
+        jq . &>/dev/null <<< "$LAUNCHER_VARS"
+        if [ $? != 0 ]; then
+          echo "Failed to parse LAUNCHER_VARS, it must be empty or valid JSON file."
+          exit 1
+        fi
+
+        if [ ! -z "$(params.OPENSHIFT_VERSION)" ]; then
+          MIRROR_URL=https://mirror.openshift.com/pub/openshift-v4/clients/ocp
+          if [[ "$(params.OPENSHIFT_VERSION)" == *dev-preview* ]]; then
+            URL="${MIRROR_URL}-$(params.OPENSHIFT_VERSION)"
+          else
+            URL="${MIRROR_URL}/$(params.OPENSHIFT_VERSION)"
+          fi
+
+          IMAGE=$(curl ${URL}/release.txt 2>/dev/null | grep "Pull From:" | cut -d" " -f3)
+          if [ $? != 0 ]; then
+            echo "URL ${URL}/release.txt not found."
+            exit 1
+          fi
+
+          IMAGE={\"installer_payload_image\":\"$IMAGE\"}
+        fi
+        PULL_SECRET_FILE={\"pull_secret_file\":\"/mnt/config/pull-secret\"}
+
+        LAUNCHER_VARS=$(echo "$IMAGE" "$LAUNCHER_VARS" | jq -c -s add)
+        LAUNCHER_VARS=$(echo "$PULL_SECRET_FILE" "$LAUNCHER_VARS" | jq -c -s add)
+
+        mkdir config
+        if [[ "$VARIABLES_LOCATION" == *-on-aws* || "$VARIABLES_LOCATION" == *-on-osp* ]]; then
+          cp $(workspaces.flexy-secrets.path)/config.yaml config/
+          cp $(workspaces.flexy-secrets.path)/psi-gitops-shared.pem config/
+          cp $(workspaces.flexy-secrets.path)/psi-gitops-shared.pub config/
+          cp $(workspaces.flexy-secrets.path)/awscreds config/
+          cp $(workspaces.flexy-secrets.path)/pull-secret config/
+        else
+          echo "Only AWS and PSI templates are supported."
+          exit 2
+        fi
+
+        git config --global http."https://gitlab.cee.redhat.com/".sslCAInfo
+        /etc/pki/ca-trust/source/anchors/RH-IT-Root-CA.crt
+
+        function archive_artifacts() {
+          echo "Archiving cluster metadata"
+          if [ ! -f installer-artifacts.zip ]; then
+            /usr/local/bin/install_entrypoint.sh archive-artifacts || true
+          fi
+          DEST_DIR=$(workspaces.install-dir.path)/$(params.CLUSTER_NAME)
+          SRC_DIR=$(pwd)/flexy/workdir/install-dir
+
+          mkdir -p "$DEST_DIR"
+          cp installer-artifacts.zip "$DEST_DIR"
+          cp flexy/users.spec "$DEST_DIR" 2> /dev/null
+          echo BUSHSLICER_PRIVATE_DIR="$(pwd)/config" >> "$DEST_DIR"/envvars
+          echo FLEXY_BRANCH="$(params.FLEXY_BRANCH)" >> "$DEST_DIR"/envvars
+          echo FLEXY_URI="$(params.FLEXY_URI)" >> "$DEST_DIR"/envvars
+          echo GIT_PRIVATE_TEMPLATES_BRANCH="$(params.GIT_PRIVATE_TEMPLATES_BRANCH)" >> "$DEST_DIR"/envvars
+          echo GIT_PRIVATE_TEMPLATES_URI="$(params.GIT_PRIVATE_TEMPLATES_URI)" >> "$DEST_DIR"/envvars
+          echo HOME=/home/jenkins >> "$DEST_DIR"/envvars
+          echo INSTANCE_NAME_PREFIX="$(params.CLUSTER_NAME)" >> "$DEST_DIR"/envvars
+          echo "LAUNCHER_VARS=$LAUNCHER_VARS" >> "$DEST_DIR"/envvars
+          echo VARIABLES_LOCATION="$(params.TEMPLATE)" >> "$DEST_DIR"/envvars
+
+          if [ -d $SRC_DIR/auth ]; then
+            cp -r "$SRC_DIR/auth" "$DEST_DIR"
+          fi
+
+          # OSD vs. regular OCP cluster
+          if [ -f $SRC_DIR/OCPINFO.yml ]; then
+            mkdir "$DEST_DIR/auth"
+            grep password $SRC_DIR/OCPINFO.yml | cut -d' ' -f2 >> "$DEST_DIR/auth/kubeadmin-password"
+            grep ocp_api_url $SRC_DIR/OCPINFO.yml | cut -d' ' -f2 >> "$DEST_DIR/auth/api-url"
+          else
+            oc config view --kubeconfig=$SRC_DIR/auth/kubeconfig --minify -o jsonpath='{.clusters[0].cluster.server}' >> "$DEST_DIR/auth/api-url"
+          fi
+
+          # Store mirror registry URL for future use
+          if [ -f "$SRC_DIR/cf_stack_output" ]; then
+            MIRROR_REG=$(grep my_IntSvc_PublicDnsName "$SRC_DIR/cf_stack_output" | cut -d "=" -f2)
+            echo "$MIRROR_REG" >> "$DEST_DIR/mirror-reg"
+            echo "Mirror registry: $MIRROR_REG:5000"
+          fi
+        }
+        trap archive_artifacts ERR EXIT
+
+        ret=0
+        /usr/local/bin/install_entrypoint.sh install || ret=$?
+
+        exit $ret
+      volumeMounts:
+      - name: flexy-output
+        mountPath: /mnt
+    - name: login-to-cluster
+      workingDir: $(workspaces.install-dir.path)
+      image: image-registry.openshift-image-registry.svc:5000/openshift/cli
+      script: |
+        #!/usr/bin/env bash
+        set -e -u -o pipefail
+
+        CLUSTER_NAME=$(params.CLUSTER_NAME)
+
+        echo "Logging in to cluster $CLUSTER_NAME as kubeadmin"
+        export KUBECONFIG=$CLUSTER_NAME/auth/kubeconfig
+
+        APISERVER=$(cat "$CLUSTER_NAME/auth/api-url")
+        # kubeconfig file might not exist (e.g. for OSD or imported clusters) so creating it manually limits unnecessary warnings
+        touch $KUBECONFIG
+        echo "Login into OpenShift cluster using this command: 'oc login -u kubeadmin -p $(cat $CLUSTER_NAME/auth/kubeadmin-password) $APISERVER --insecure-skip-tls-verify=true'"
+
+        # Sometime the url can let us down, so let's add a counter
+        i=1
+        while [[ $i -le 10 ]]; do
+          oc login -u kubeadmin -p $(cat $CLUSTER_NAME/auth/kubeadmin-password) $APISERVER --insecure-skip-tls-verify=true && break
+          sleep 5
+          (( i++ ))
+        done
+  volumes:
+  - name: flexy-output
+    emptyDir: {}

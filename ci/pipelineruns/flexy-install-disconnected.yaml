@@ -1,0 +1,33 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: flexy-install-disconnected-
+spec:
+  pipelineRef:
+    name: flexy-install
+  timeout: 4h
+  params:
+  - name: CLUSTER_NAME
+    value: choose_your_own_name
+  - name: LAUNCHER_VARS
+    value: ""
+  - name: OPENSHIFT_VERSION
+    value: stable-4.9
+  - name: TEMPLATE
+    value: private-templates/functionality-testing/aos-4_9/ipi-on-aws/versioned-installer-customer_vpc-disconnected
+  workspaces:
+  - name: flexy-secrets
+    secret:
+      secretName: flexy
+  - name: install-dir
+    persistentVolumeClaim:
+      claimName: install-dir
+  - name: plumbing-git
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 100Mi
+        storageClassName: csi-manila-ceph

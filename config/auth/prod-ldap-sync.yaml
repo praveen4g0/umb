@@ -1,0 +1,25 @@
+kind: LDAPSyncConfig
+apiVersion: v1
+url: "ldap://ldap.corp.redhat.com:389"
+insecure: false
+groupUIDNameMapping:
+    "cn=gitops,ou=adhoc,ou=managedGroups,dc=redhat,dc=com": gitops-team
+rfc2307:
+    groupsQuery:
+        baseDN: "ou=adhoc,ou=managedGroups,dc=redhat,dc=com"
+        scope: sub
+        derefAliases: never
+        pageSize: 0
+        filter: "(cn=gitops)"
+    groupUIDAttribute: dn
+    groupNameAttributes: [ cn ]
+    groupMembershipAttributes: [ uniqueMember ]
+    usersQuery:
+        baseDN: "ou=users,dc=redhat,dc=com"
+        scope: sub
+        derefAliases: never
+        pageSize: 0
+    userUIDAttribute: dn
+    userNameAttributes: [ uid ]
+    tolerateMemberNotFoundErrors: false
+    tolerateMemberOutOfScopeErrors: false

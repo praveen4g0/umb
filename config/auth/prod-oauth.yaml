@@ -1,0 +1,26 @@
+apiVersion: config.openshift.io/v1
+kind: OAuth
+metadata:
+  name: cluster
+spec:
+  identityProviders:
+  - name: LDAP
+    mappingMethod: claim 
+    type: LDAP
+    ldap:
+      attributes:
+        id: 
+        - dn
+        email: 
+        - mail
+        name: 
+        - cn
+        preferredUsername: 
+        - uid
+      ca: 
+        name: redhat-ca-config-map
+      insecure: false 
+      url: "ldap://ldap.corp.redhat.com:389/ou=users,dc=redhat,dc=com?uid?sub?(memberof=cn=gitops,ou=adhoc,ou=managedGroups,dc=redhat,dc=com)"
+  tokenConfig:
+    accessTokenMaxAgeSeconds: 8640000
+

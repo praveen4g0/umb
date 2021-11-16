@@ -1,0 +1,37 @@
+apiVersion: v1
+baseDomain: domainxxx
+compute:
+- hyperthreading: Enabled
+  name: worker
+  platform:
+    openstack:
+      type: ci.m1.xlarge
+  replicas: computereplicasxxx
+controlPlane:
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: clusternamexxx
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineCIDR: 192.168.0.0/16
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  openstack:
+    cloud: "psi-gitops"
+    computeFlavor: ci.m1.xlarge
+    externalNetwork: networkxxx
+    lbFloatingIP: "ipxxx"
+    octaviaSupport: "0"
+    region: regionOne
+    trunkSupport: "1"
+pullSecret: 'pullsecretxxx'
+sshKey: |
+  ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC5VYMX1KBukk+JyBnWn8dBQWX7Lf6Snd1t06OdAfZwFXd/JuADu6xACDQ1262PpcJRVUOrN0EY9Tc0Jalc5qDe3EKReKXsHUaM6XX8/D0hRaGPRZwqBxnHoA1J3BlUmo78cvWP+pN3Nh6Zrl03YloXfRkWqKVeL3j2DI/SuFEdf/7Tl8/3hcADr0ShTNVDk2qqZM+0UB6EYT75/7v9izci2Iyw8Uz/H6VIX3MPXBYUIRpPp925otitu2h6GEHxKUgrwHHnMiDqDQhTdc4SLpTpRiGuha2s2AaUfTH/iPhXgBmaGz30K4liPIXR/pZZH7E1viz8z/mlW6xU9X91rTACDo7nUWgu4I36UU/HYYSWxPSRP/bxwkDJ6t8SkzXtgo3C+DgJC5u13GGCf0f5oCKGigKEgTshcycOAdpP08kqmblYKw75z0skoW1KBfspj3t8RsoupjgFN4KE47ZMYj+vRr/PcfPWK6+c399fFwBk3cTa1GHoK1k1MjVsUtJfyTE= praveen.thangadancha@gmail.com
