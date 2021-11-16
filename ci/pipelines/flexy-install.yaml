@@ -1,0 +1,131 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: flexy-install
+spec:
+  description: |
+    Pipeline installing OpenShift clusters using Flexy tool.
+  params:
+  - name: CLUSTER_NAME
+    description: |
+      Cluster name - keep it short, use your name/nick if it's a temporary cluster.
+  - name: FLEXY_BRANCH
+    default: master
+    description: |
+      Use default value unless you are creating/debugging Flexy templates.
+  - name: FLEXY_URI
+    default: https://github.com/openshift/verification-tests.git
+    description: |
+      Use default value unless you are creating/debugging Flexy templates.
+  - name: GIT_PRIVATE_TEMPLATES_BRANCH
+    default: master
+    description: |
+      Use default value unless you are creating/debugging Flexy templates.
+  - name: GIT_PRIVATE_TEMPLATES_URI
+    default: https://gitlab.cee.redhat.com/aosqe/flexy-templates.git
+    description: |
+      Use default value unless you are creating/debugging Flexy templates.
+  - name: LAUNCHER_VARS
+    default: >-
+      {
+      "dns_solution":"route53",
+      "num_workers":2
+      }
+    description: |
+      If installing a cluster in PSI, use the default value that provides best UX and
+      helps us save some resources. If installing on AWS, use an empty object or
+      don't set it at all.
+  - name: OPENSHIFT_VERSION
+    default: stable
+    description: |
+        Choose one of the versions available on following URLs:
+          * https://mirror.openshift.com/pub/openshift-v4/clients/ocp
+          * https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview
+
+        Examples:
+          ""             use template's default value or image specified in LAUNCHER_VARS
+                         (need extra pull secret if using images from registry.svc.ci.openshift.org)
+          stable         latest stable release
+          stable-4.6     latest stable 4.6 release
+          fast-4.6       latest fast 4.6 release (supported, guaranteed to have an upgrade path in the future)
+          candidate-4.6  latest candidate 4.6 release (unsupported, might not be possible to upgrade)
+          4.5.20         specific stable release or release candidate
+          dev-preview/latest-4.7
+                         latest nightly 4.7 release (unsupported)
+          dev-preview/4.7.0-0.nightly-2020-11-25-114114
+                         specific nightly release (unsupported, will disappear after some time)
+  - name: OSD_ENV
+    default: stage
+    description: |
+      Environment in which the OSD cluster will be installed. Will be ignored when installing OCP.
+      One of stage/prod.
+  - name: TEMPLATE
+    default: private-templates/functionality-testing/aos-4_7/ipi-on-osp/versioned-installer
+    description: |
+      Path to a Flexy template from GIT_PRIVATE_TEMPLATES_URI prefixed it "private-templates/".
+      Has to be set to correct minor version of OpenShift when specifying non-default
+      OPENSHIFT_VERSION.
+  workspaces:
+  - name: flexy-secrets
+    description: Use secret named "flexy".
+  - name: install-dir
+    description: Use a PVC named "install-dir".
+  - name: plumbing-git
+    description: Use a volumeClaimTemplate with size of 100Mi.
+  tasks:
+  - name: provision-cluster
+    taskRef:
+      name: flexy-install
+    workspaces:
+    - name: flexy-secrets
+      workspace: flexy-secrets
+    - name: install-dir
+      workspace: install-dir
+    params:
+    - name: CLUSTER_NAME
+      value: $(params.CLUSTER_NAME)
+    - name: FLEXY_BRANCH
+      value: $(params.FLEXY_BRANCH)
+    - name: FLEXY_URI
+      value: $(params.FLEXY_URI)
+    - name: GIT_PRIVATE_TEMPLATES_BRANCH
+      value: $(params.GIT_PRIVATE_TEMPLATES_BRANCH)
+    - name: GIT_PRIVATE_TEMPLATES_URI
+      value: $(params.GIT_PRIVATE_TEMPLATES_URI)
+    - name: LAUNCHER_VARS
+      value: $(params.LAUNCHER_VARS)
+    - name: OPENSHIFT_VERSION
+      value: $(params.OPENSHIFT_VERSION)
+    - name: OSD_ENV
+      value: $(params.OSD_ENV)
+    - name: TEMPLATE
+      value: $(params.TEMPLATE)
+  - name: clone-plumbing-git
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    runAfter:
+      - provision-cluster
+    params:
+      - name: url
+        value: https://gitlab.cee.redhat.com/pthangad/plumbing-gitops.git
+      - name: deleteExisting
+        value: "true"
+      - name: sslVerify
+        value: "false"
+    workspaces:
+    - name: output
+      workspace: plumbing-git
+  - name: setup-testing-accounts
+    taskRef:
+      name: setup-testing-accounts
+    runAfter:
+    - clone-plumbing-git
+    params:
+      - name: CLUSTER_NAME
+        value: $(params.CLUSTER_NAME)
+    workspaces:
+    - name: install-dir
+      workspace: install-dir
+    - name: plumbing-git
+      workspace: plumbing-git

@@ -1,0 +1,25 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: flexy-uninstall
+spec:
+  params:
+  - name: CLUSTER_NAME
+    description: Cluster name
+  workspaces:
+  - name: flexy-secrets
+    description: Use secret named "flexy".
+  - name: install-dir
+    description: Use a PVC named "install-dir".
+  tasks:
+  - name: uninstall
+    taskRef:
+      name: flexy-uninstall
+    workspaces:
+    - name: flexy-secrets
+      workspace: flexy-secrets
+    - name: install-dir
+      workspace: install-dir
+    params:
+    - name: CLUSTER_NAME
+      value: $(params.CLUSTER_NAME)

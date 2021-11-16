@@ -1,0 +1,38 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: flexy-install-psi-
+spec:
+  pipelineRef:
+    name: flexy-install
+  timeout: 3h
+  params:
+  - name: CLUSTER_NAME
+    value: choose_your_own_name
+  - name: LAUNCHER_VARS
+    value: >-
+      {
+      "additionalNetworkIDs": ["27671b90-c2bc-483f-b783-cc856f20ee5d"],
+      "dns_solution":"route53",
+      "num_workers":2
+      }
+  - name: OPENSHIFT_VERSION
+    value: candidate-4.9
+  - name: TEMPLATE
+    value: private-templates/functionality-testing/aos-4_9/ipi-on-osp/versioned-installer
+  workspaces:
+  - name: flexy-secrets
+    secret:
+      secretName: flexy
+  - name: install-dir
+    persistentVolumeClaim:
+      claimName: install-dir
+  - name: plumbing-git
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 100Mi
+        storageClassName: csi-manila-ceph    
