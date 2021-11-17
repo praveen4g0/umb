@@ -16,7 +16,6 @@ We have a task and pipeline called `flexy-install` which can install OpenShift c
 
 Downstream CI is configured to provision clusters on PSI and AWS - use PSI whenever possible. Please remove your cluster as soon as you don't need it.
 
-The installed cluster will have both kubeadmin and multiple regular user accounts. Login details will be printed at the end of installation log. Additionally, the cluster metadata will be uploaded to https://artifacts.tekton.codereadyqe.com/clusters/.
 
 Display pipeline's description by running `tkn pipeline describe flexy-install -n gitops-ci`.
 
