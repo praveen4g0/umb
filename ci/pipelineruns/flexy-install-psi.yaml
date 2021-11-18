@@ -11,9 +11,10 @@ spec:
     value: choose_your_own_name
   - name: LAUNCHER_VARS
     value: >-
-      {
-      "dns_solution":"route53"
-      }
+     { 
+     "additionalNetworkIDs": ["27671b90-c2bc-483f-b783-cc856f20ee5d"],
+     "dns_solution":"route53"
+     }
   - name: OPENSHIFT_VERSION
     value: stable-4.9
   - name: TEMPLATE
@@ -29,7 +30,8 @@ spec:
     volumeClaimTemplate:
       spec:
         accessModes:
-          - ReadWriteOnce
+          - ReadWriteMany
         resources:
           requests:
             storage: 100Mi
+        storageClassName: csi-manila-ceph

@@ -26,7 +26,8 @@ spec:
     volumeClaimTemplate:
       spec:
         accessModes:
-          - ReadWriteOnce
+          - ReadWriteMany
         resources:
           requests:
             storage: 100Mi
+        storageClassName: csi-manila-ceph
