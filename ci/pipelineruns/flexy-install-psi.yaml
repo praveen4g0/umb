@@ -12,12 +12,10 @@ spec:
   - name: LAUNCHER_VARS
     value: >-
       {
-      "additionalNetworkIDs": ["27671b90-c2bc-483f-b783-cc856f20ee5d"],
-      "dns_solution":"route53",
-      "num_workers":2
+      "dns_solution":"route53"
       }
   - name: OPENSHIFT_VERSION
-    value: candidate-4.9
+    value: stable-4.9
   - name: TEMPLATE
     value: private-templates/functionality-testing/aos-4_9/ipi-on-osp/versioned-installer
   workspaces:
@@ -31,8 +29,7 @@ spec:
     volumeClaimTemplate:
       spec:
         accessModes:
-          - ReadWriteMany
+          - ReadWriteOnce
         resources:
           requests:
             storage: 100Mi
-        storageClassName: csi-manila-ceph
