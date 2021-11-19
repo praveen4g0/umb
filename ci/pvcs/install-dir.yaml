@@ -8,5 +8,5 @@ spec:
   resources:
     requests:
       # if a pre-installed RHCOS image is not used, it will be stored in this PVC
-      storage: 5Gi
+      storage: 7Gi
   storageClassName: csi-manila-ceph

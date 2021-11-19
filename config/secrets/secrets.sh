@@ -59,5 +59,5 @@ sed -e "s,\$AWS_ACCESS_KEY_ID,$AWS_ACCESS_KEY_ID,g" \
     -e "s,\$REGISTRY_RH_IO_USERNAME,$REGISTRY_RH_IO_USERNAME,g" \
     -e "s,\$REGISTRY_RH_IO_PASSWORD,$REGISTRY_RH_IO_PASSWORD,g" \
     -e "s,\$SSH_PRIVATE_KEY,$ENCODED_SSH_PRIVATE_KEY,g" \
-    -e "s,\$SSH_PUBLIC_KEY,$SSH_PUBLIC_KEY,g"
+    -e "s,\$SSH_PUBLIC_KEY,$SSH_PUBLIC_KEY,g" \
     "$DIR/../../ci/secrets/flexy.yaml" | oc apply -f -

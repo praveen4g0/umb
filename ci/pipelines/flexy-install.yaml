@@ -108,7 +108,7 @@ spec:
       - provision-cluster
     params:
       - name: url
-        value: https://gitlab.cee.redhat.com/pthangad/plumbing-gitops.git
+        value: https://gitlab.cee.redhat.com/gitops/plumbing-gitops.git
       - name: deleteExisting
         value: "true"
       - name: sslVerify

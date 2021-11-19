@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CLUSTER_NAME=$1
-export OS_CLOUD=psi-pipelines
+export OS_CLOUD=${OS_CLOUD:-"psi-gitops"}
 
 if [ -z $CLUSTER_NAME ]; then
   echo "specify cluster name as a parameter of this script"

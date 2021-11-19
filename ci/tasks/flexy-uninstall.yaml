@@ -37,8 +37,8 @@ spec:
         mkdir config
         if [[ "$VARIABLES_LOCATION" == *-on-aws* || "$VARIABLES_LOCATION" == *-on-osp* ]]; then
           cp $(workspaces.flexy-secrets.path)/config.yaml config/
-          cp $(workspaces.flexy-secrets.path)/psi-pipelines-shared.pem config/
-          cp $(workspaces.flexy-secrets.path)/psi-pipelines-shared.pub config/
+          cp $(workspaces.flexy-secrets.path)/psi-gitops-shared.pem config/
+          cp $(workspaces.flexy-secrets.path)/psi-gitops-shared.pub config/
           cp $(workspaces.flexy-secrets.path)/awscreds config/
           cp $(workspaces.flexy-secrets.path)/pull-secret config/
         else 
