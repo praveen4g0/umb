@@ -4,9 +4,9 @@ This repo holds configuration for infrastructure and gitops used for testing rel
 
 ## Downstream CI
 
-gitops QE team maintain an OpenShift cluster in PSI with gitops operator installed. We regularly update the cluster so that we use the latest release of OpenShift gitops.
+gitops QE team maintain an OpenShift cluster in PSI with pipelines operator installed. We regularly update the cluster so that we use the latest release of OpenShift pipelines.
 
-Access is managed by Rover group [psi-gitops-users](https://rover.redhat.com/groups/group/gitops). Ask group owner for access, then use Kerberos credentials to log in.
+Access is managed by Rover group [gitops](https://rover.redhat.com/groups/group/gitops). Ask group owner for access, then use Kerberos credentials to log in.
 
 Production pipelines run in namespace `gitops-ci`. Users are supposed to use their own namespaces when debugging, improving or developing pipelines.
 
