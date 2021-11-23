@@ -24,8 +24,9 @@ Display pipeline's description by running `tkn pipeline describe flexy-install -
 1. Login to Downstream CI cluster using your Kerberos credentials.
 2. Clone this git repository.
 3. Edit `ci/pipelineruns/flexy-install-psi.yaml`. In many cases only the name of the cluster will be required.
+4. `oc create -f ci/pipelineruns/flexy-install-psi.yaml`
 
-### Using tkn CLI
+### Using [tkn CLI](https://github.com/tektoncd/cli#installing-tkn)
 
 1. Login to Downstream CI cluster using your Kerberos credentials.
 2. Clone this git repository.
