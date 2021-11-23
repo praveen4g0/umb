@@ -4,7 +4,7 @@ This repo holds configuration for infrastructure and gitops used for testing rel
 
 ## Downstream CI
 
-gitops QE team maintain an OpenShift cluster in PSI with pipelines operator installed. We regularly update the cluster so that we use the latest release of OpenShift pipelines.
+gitops QE team maintain an [OpenShift cluster](https://console-openshift-console.apps.cicd.ocp-gitops-qe.com/) in PSI with pipelines operator installed. We regularly update the cluster so that we use the latest release of OpenShift pipelines.
 
 Access is managed by Rover group [gitops](https://rover.redhat.com/groups/group/gitops). Ask group owner for access, then use Kerberos credentials to log in.
 
@@ -45,3 +45,7 @@ Display pipeline's description by running `tkn pipeline describe flexy-install -
 We have a task and pipeline called `flexy-uninstall` which can uninstall any cluster
 
 Display pipeline's description by running `tkn pipeline describe flexy-uninstall -n gitops-ci`.
+
+example:
+
+`tkn pipeline start flexy-uninstall -n gitops-ci -p CLUSTER_NAME=<cluster_name> -w name=flexy-secrets,secret=flexy -w name=install-dir,claimName=install-dir --showlog`
