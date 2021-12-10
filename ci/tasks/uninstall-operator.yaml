@@ -1,0 +1,38 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: uninstall-gitops-operator
+spec:
+  workspaces:
+    - name: install-dir
+      mountPath: "/install-dir"
+      readOnly: true
+    - name: plumbing-git
+      mountPath: "/plumbing"
+  params:
+  - name: CLUSTER_NAME
+    type: string
+    description: Cluster name
+  - name: CATALOG_SOURCE
+    type: string
+    description: provide catalog-source name through which user have to subscribe operator
+    default: custom-operators
+  - name: CHANNEL
+    type: string
+    default: stable  
+  steps:
+    - name: uninstall-gitops-operator
+      image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      workingDir: $(workspaces.plumbing-git.path)/config/operator
+      script: |
+        #!/usr/bin/env bash
+        set -u -o pipefail
+
+        echo -e "Logging in as Admin user" 
+        oc login -u kubeadmin -p $(cat $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/auth/kubeadmin-password) $(cat $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/auth/api-url) --insecure-skip-tls-verify=true
+
+        export KUBECONFIG=$HOME/.kube/config
+        export CATALOG_SOURCE=$(params.CATALOG_SOURCE)
+        export CHANNEL=$(params.CHANNEL)
+
+        ./uninstall-operator.sh
