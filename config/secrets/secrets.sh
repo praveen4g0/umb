@@ -61,3 +61,10 @@ sed -e "s,\$AWS_ACCESS_KEY_ID,$AWS_ACCESS_KEY_ID,g" \
     -e "s,\$SSH_PRIVATE_KEY,$ENCODED_SSH_PRIVATE_KEY,g" \
     -e "s,\$SSH_PUBLIC_KEY,$SSH_PUBLIC_KEY,g" \
     "$DIR/../../ci/secrets/flexy.yaml" | oc apply -f -
+
+echo -e "\nConfiguring image registry secrets"
+sed -e "s,\$BREW_USER,$BREW_USER,g" \
+    -e "s,\$BREW_PASS,$BREW_PASS,g" \
+    -e "s,\$QUAY_USER,$QUAY_USER,g" \
+    -e "s,\$QUAY_PASS,$QUAY_PASS,g" \
+    "$DIR/../../ci/secrets/registry.yaml" | oc apply -f -
