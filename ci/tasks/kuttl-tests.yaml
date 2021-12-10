@@ -1,0 +1,60 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kuttl-tests
+spec:
+  workspaces:
+    - name: install-dir
+      mountPath: "/install-dir"
+      readOnly: true
+    - name: kuttl-tests-git
+      mountPath: "/kuttl-e2e"
+  params:
+  - name: CLUSTER_NAME
+    type: string
+    description: Cluster name
+  - name: DIRECTORY
+    default: gitops-operator  
+  - name: IMAGE
+    type: string
+    description: Bootstrap image with required tools
+    default: quay.io/praveen4g0/kuttl-tests:v1  
+  - name: RUN_AS
+    description: Provide user privilege to runs tests with  (eg one of admin/non-admin)
+    default: "admin"
+  - name: TEST_SUITE
+    description: Provide type of E2E test suite you need to run (eg sequential|parallel|all)
+    default: "all"
+  steps:
+    - name: run-kuttl-e2e-tests
+      image: $(params.IMAGE)
+      workingDir: $(workspaces.kuttl-tests-git.path)
+      script: |
+        #!/usr/bin/env bash
+        set -u -o pipefail
+
+        if [[ $(echo $(params.RUN_AS) | tr -s  '[:upper:]'  '[:lower:]') == admin ]]; then
+            echo -e "Logging in as $(params.RUN_AS) user" 
+            oc login -u kubeadmin -p $(cat $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/auth/kubeadmin-password) $(cat $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/auth/api-url) --insecure-skip-tls-verify=true
+        else
+            RANDOM=( $(shuf -i 1-9 -n 1) )
+            echo -e "Logging in as non-admin user: user$RANDOM"
+            oc login -u user$RANDOM -p user$RANDOM $(cat $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/auth/api-url) --insecure-skip-tls-verify=true 
+        fi
+
+        export KUBECONFIG=$HOME/.kube/config
+        
+        case "$(params.TEST_SUITE)" in
+        "parallel")
+          make -C $(params.DIRECTORY) e2e-tests-parallel
+          ;;
+        "sequential")
+          make -C $(params.DIRECTORY) e2e-tests-sequential
+          ;;
+        "all")
+          make -C $(params.DIRECTORY) e2e-tests
+          ;;
+        *)
+          echo "USAGE: $0 (parallel|sequential|all)" >&2
+          exit 1
+        esac
