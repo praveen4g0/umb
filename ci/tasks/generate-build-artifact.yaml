@@ -31,7 +31,7 @@ spec:
     - name: MIRROR_REGISTRY
       description: Provide mirror registry details.
       default: "quay.io"
-    - name: IMAGE_REPOISTORY
+    - name: IMAGE_REPOSITORY
       description: Provide mirror registry repository details.
       default: "openshift-gitops"  
     - name: OPERATOR_ENVIRONMENT
@@ -107,9 +107,9 @@ spec:
 
           if [[ ${ENVIRONMENT} == ${ENVSTAGE} ]]; then
             curr_ts=`date +"%y%m%d-%H%M%S"`
-            OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOISTORY)/redhat-operator-index:$INDEX-${curr_ts}
+            OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOSITORY)/redhat-operator-index:$INDEX-${curr_ts}
           else
-            OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOISTORY)/redhat-operator-index:$INDEX
+            OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOSITORY)/redhat-operator-index:$INDEX
           fi
 
           echo -n $REGISTRY_IMAGE > $(results.index-image-src.path)
@@ -117,14 +117,14 @@ spec:
 
           if [[ $(params.IS_DISCONNECTED) != "false" ]]; then
              sha=$(oc image info $REGISTRY_IMAGE --filter-by-os=linux/amd64 --insecure=true -a $REG_CREDS -o json| jq ".listDigest"|tr -d '"')
-             OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOISTORY)/redhat-operator-index@$sha
+             OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOSITORY)/redhat-operator-index@$sha
           fi
 
           MANIFESTS_DIR=manifests-iib
           MAPPING_FILE=${MANIFESTS_DIR}/mapping.txt
 
           echo "Generating mapping.txt using real mirror registry"
-          oc adm catalog mirror $REGISTRY_IMAGE $MIRROR_REG/$(params.IMAGE_REPOISTORY) --insecure --index-filter-by-os=$(params.ARCH) -a $REG_CREDS --manifests-only --to-manifests=${MANIFESTS_DIR}
+          oc adm catalog mirror $REGISTRY_IMAGE $MIRROR_REG/$(params.IMAGE_REPOSITORY) --insecure --index-filter-by-os=$(params.ARCH) -a $REG_CREDS --manifests-only --to-manifests=${MANIFESTS_DIR}
 
           cp ${MANIFESTS_DIR}/imageContentSourcePolicy.yaml $(workspaces.build-artifacts.path)/imageContentSourcePolicy.yaml
           cp ${MANIFESTS_DIR}/imageContentSourcePolicy.yaml $(workspaces.build-artifacts.path)/image-content-source-policy.yaml

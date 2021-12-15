@@ -40,7 +40,7 @@ spec:
     value: gitops-operator  
   - name: TEMPLATE
     value: private-templates/functionality-testing/aos-4_9/ipi-on-aws/versioned-installer-customer_vpc-disconnected
-  - name: IMAGE_REPOISTORY
+  - name: IMAGE_REPOSITORY
     value: openshift-gitops 
   workspaces:
   - name: flexy-secrets

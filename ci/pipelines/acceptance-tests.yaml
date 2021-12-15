@@ -45,7 +45,7 @@ spec:
     type: array
     default:
       - gitops-operator
-  - name: IMAGE_REPOISTORY
+  - name: IMAGE_REPOSITORY
     type: string
     default: openshift-gitops  
   workspaces:
@@ -167,8 +167,8 @@ spec:
         value: $(params.INDEX)
       - name: MIRROR_REGISTRY
         value: $(tasks.provision-cluster.results.mirror-registry)
-      - name: IMAGE_REPOISTORY
-        value: $(params.IMAGE_REPOISTORY)
+      - name: IMAGE_REPOSITORY
+        value: $(params.IMAGE_REPOSITORY)
       - name: OPERATOR_ENVIRONMENT
         value: $(params.OPERATOR_ENVIRONMENT)
     workspaces:
