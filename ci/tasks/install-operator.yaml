@@ -23,7 +23,7 @@ spec:
   steps:
     - name: install-gitops-operator
       image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
-      workingDir: $(workspaces.plumbing-git.path)/config/operator
+      workingDir: $(workspaces.plumbing-git.path)
       script: |
         #!/usr/bin/env bash
         set -u -o pipefail
@@ -35,4 +35,4 @@ spec:
         export CATALOG_SOURCE=$(params.CATALOG_SOURCE)
         export CHANNEL=$(params.CHANNEL)
 
-        ./install-operator.sh
+        config/operator/install-operator.sh
