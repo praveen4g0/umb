@@ -1,0 +1,67 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: upload-artifacts
+spec:
+  params:
+    - name: ARTIFACTS
+      description: |
+        List of full paths of artifacts to upload. Optionally, you can specify a new path or file
+        name after colon, e.g. original/path/fileA:newNameA or original/path/fileB:new/path/fileB
+      type: array
+    - name: UPLOAD_PATH
+      description: |
+        Directory that will be used to store artifacts on remote cluster.
+  steps:
+    - name: upload
+      image: registry.access.redhat.com/ubi8/ubi-minimal
+      # workaround for Tekton not supporting array params in script
+      args: ["$(params.ARTIFACTS[*])"]
+      env:
+      - name: UPLOADER_HOST
+        valueFrom:
+          secretKeyRef:
+            name: uploader
+            key: uploader-host
+      - name: UPLOADER_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: uploader
+            key: uploader-username
+      - name: UPLOADER_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: uploader
+            key: uploader-password
+      script: |
+        #!/usr/bin/env bash
+        set -e
+
+        # By default it will upload the file as specified in first param to "$UPLOAD_PATH/basename of $1".
+        # If you specify the second param, it will upload the file to the destination specified in there.
+        function upload() {
+          dest=${2:-$(basename $1)}
+
+          echo "Uploading ${1} to ${UPLOADER_HOST}/$(params.UPLOAD_PATH)/${dest}"
+          curl -k -s -u ${UPLOADER_USERNAME}:${UPLOADER_PASSWORD} \
+            -F path="$(params.UPLOAD_PATH)/${dest}" \
+            -F file=@${1} \
+            ${UPLOADER_HOST}/upload
+          # print new line
+          echo
+        }
+
+        for file in "$@"; do
+          paths=(${file//:/ })
+
+          [[ ! -f ${paths[0]} ]] && {
+            echo "Skipping the file ${paths[0]} because it doesn't exist."
+            continue
+          }
+
+          upload ${paths[0]} ${paths[1]}
+        done
+      workingDir: $(workspaces.input.path)
+  workspaces:
+    - name: input
+      readOnly: true
