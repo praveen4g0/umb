@@ -1,0 +1,16 @@
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  generateName: whitelist-domains-
+spec:
+  params:
+    - name: DOMAINS
+      value: "registry.npmjs.org registry.redhat.io .getcomposer.org .packagist.org oss.sonatype.org repo.maven.apache.org repo1.maven.org .pythonhosted.org .pypi.org .python.org .nuget.org github.com gitlab.com"
+    - name: IS_DISCONNECTED
+      value: "true"
+    - name: PROXY_HOST
+      value: PROVIDE_PROXY_HOST
+  serviceAccountName: pipeline
+  taskRef:
+    kind: Task
+    name: whitelist-domains
