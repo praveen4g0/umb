@@ -5,7 +5,7 @@ metadata:
 spec:
   params:
     - name: DOMAINS
-      value: "registry.npmjs.org registry.redhat.io .getcomposer.org .packagist.org oss.sonatype.org repo.maven.apache.org repo1.maven.org .pythonhosted.org .pypi.org .python.org .nuget.org github.com gitlab.com"
+      value: "registry.npmjs.org registry.redhat.io .getcomposer.org .packagist.org oss.sonatype.org repo.maven.apache.org repo1.maven.org .pythonhosted.org .pypi.org .python.org .nuget.org github.com gitlab.com docker.io docker.com quay.io"
     - name: IS_DISCONNECTED
       value: "true"
     - name: PROXY_HOST

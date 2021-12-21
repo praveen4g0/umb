@@ -6,7 +6,7 @@ spec:
   params:
     - name: DOMAINS
       description: Domains that should be added to Squid proxy whitelist
-      default: registry.npmjs.org .getcomposer.org .packagist.org oss.sonatype.org repo.maven.apache.org repo1.maven.org .pythonhosted.org .pypi.org .python.org .nuget.org
+      default: registry.npmjs.org .getcomposer.org .packagist.org oss.sonatype.org repo.maven.apache.org repo1.maven.org .pythonhosted.org .pypi.org .python.org .nuget.org github.com gitlab.com docker.io docker.com quay.io
     - name: IS_DISCONNECTED
       description: Flag to identify disconnected nature of cluster
       default: "false"
