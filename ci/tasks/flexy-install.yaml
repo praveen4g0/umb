@@ -51,7 +51,7 @@ spec:
   steps:
     - name: install-cluster
       workingDir: /mnt
-      image: docker-registry.upshift.redhat.com/flexy/ocp4:v1.8
+      image: docker-registry.upshift.redhat.com/flexy/ocp4:v1.10
       script: |
         #!/usr/bin/env bash
         set -o pipefail

@@ -12,7 +12,7 @@ spec:
     description: Cluster name
   steps:
     - name: uninstall
-      image: docker-registry.upshift.redhat.com/flexy/ocp4:v1.8
+      image: docker-registry.upshift.redhat.com/flexy/ocp4:v1.10
       workingDir: /mnt
       script: |
         #!/usr/bin/env bash
