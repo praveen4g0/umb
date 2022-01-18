@@ -39,6 +39,11 @@ spec:
                          latest nightly 4.7 release (unsupported)
           dev-preview/4.7.0-0.nightly-2020-11-25-114114
                          specific nightly release (unsupported, will disappear after some time)
+    - name: OSD_ENV
+      default: stage
+      description: |
+        Environment in which the OSD cluster will be installed. Will be ignored when installing OCP.
+        One of stage/prod.                     
     - name: TEMPLATE
       default: private-templates/functionality-testing/aos-4_6/ipi-on-osp/versioned-installer
       description: |
@@ -77,6 +82,8 @@ spec:
         export HOME=/home/jenkins
         export INSTANCE_NAME_PREFIX="$(params.CLUSTER_NAME)"
         export LAUNCHER_VARS='$(params.LAUNCHER_VARS)'
+        export OCM_CLI_URL_PREFIX=https://github.com/openshift-online/ocm-cli/releases/download/v0.1.55
+        export OCM_SERVICE_NAME="ocm-$(params.OSD_ENV)"
         export VARIABLES_LOCATION="$(params.TEMPLATE)"
 
         jq . &>/dev/null <<< "$LAUNCHER_VARS"
@@ -107,19 +114,13 @@ spec:
         LAUNCHER_VARS=$(echo "$PULL_SECRET_FILE" "$LAUNCHER_VARS" | jq -c -s add)
 
         mkdir config
-        if [[ "$VARIABLES_LOCATION" == *-on-aws* || "$VARIABLES_LOCATION" == *-on-osp* ]]; then
-          cp $(workspaces.flexy-secrets.path)/config.yaml config/
-          cp $(workspaces.flexy-secrets.path)/psi-gitops-shared.pem config/
-          cp $(workspaces.flexy-secrets.path)/psi-gitops-shared.pub config/
-          cp $(workspaces.flexy-secrets.path)/awscreds config/
-          cp $(workspaces.flexy-secrets.path)/pull-secret config/
+        if [[ "$VARIABLES_LOCATION" == *-on-aws* || \
+              "$VARIABLES_LOCATION" == *-on-osp* ]]; then
+          cp $(workspaces.flexy-secrets.path)/* config/
         else
           echo "Only AWS and PSI templates are supported."
           exit 2
         fi
-
-        git config --global http."https://gitlab.cee.redhat.com/".sslCAInfo
-        /etc/pki/ca-trust/source/anchors/RH-IT-Root-CA.crt
 
         function archive_artifacts() {
           echo "Archiving cluster metadata"
@@ -140,6 +141,8 @@ spec:
           echo HOME=/home/jenkins >> "$DEST_DIR"/envvars
           echo INSTANCE_NAME_PREFIX="$(params.CLUSTER_NAME)" >> "$DEST_DIR"/envvars
           echo "LAUNCHER_VARS=$LAUNCHER_VARS" >> "$DEST_DIR"/envvars
+          echo OCM_CLI_URL_PREFIX=$OCM_CLI_URL_PREFIX >> "$DEST_DIR"/envvars
+          echo OCM_SERVICE_NAME=$OCM_SERVICE_NAME >> "$DEST_DIR"/envvars
           echo VARIABLES_LOCATION="$(params.TEMPLATE)" >> "$DEST_DIR"/envvars
 
           if [ -d $SRC_DIR/auth ]; then

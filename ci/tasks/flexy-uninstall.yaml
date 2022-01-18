@@ -35,36 +35,41 @@ spec:
 
         echo "Preparing environment variables and secrets"
         mkdir config
-        if [[ "$VARIABLES_LOCATION" == *-on-aws* || "$VARIABLES_LOCATION" == *-on-osp* ]]; then
-          cp $(workspaces.flexy-secrets.path)/config.yaml config/
-          cp $(workspaces.flexy-secrets.path)/psi-gitops-shared.pem config/
-          cp $(workspaces.flexy-secrets.path)/psi-gitops-shared.pub config/
-          cp $(workspaces.flexy-secrets.path)/awscreds config/
-          cp $(workspaces.flexy-secrets.path)/pull-secret config/
-        else 
+        if [[ "$VARIABLES_LOCATION" == *-on-aws* || \
+              "$VARIABLES_LOCATION" == *-on-osp* ]]; then
+          cp $(workspaces.flexy-secrets.path)/* config/
+        else
           echo "Only AWS and PSI templates are supported."
           exit 2
         fi
 
-        # workaround for handling certificate of gitlab.cee.redhat.com
-        git config --global http."https://gitlab.cee.redhat.com/".sslCAInfo /etc/pki/ca-trust/source/anchors/RH-IT-Root-CA.crt
-
         cp $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/installer-artifacts.zip .
+
+        function remove_artifacts() {
+          echo -e "\nRemoving directory $(params.CLUSTER_NAME)"
+          rm -rf $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)
+        }
+
+        trap remove_artifacts ERR EXIT
 
         if [[ -z `zip -sf $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/installer-artifacts.zip | grep fips_info`
           &&  "$VARIABLES_LOCATION" == *-on-osp* ]]; then
           echo "File fips_info not found which indicates that no resources were created during installation. Skipping uninstallation script."
+        elif [[ -z `zip -sf $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/installer-artifacts.zip | grep install-dir/metadata.json`
+          && "$VARIABLES_LOCATION" != *osd* ]]; then
+          echo "File install-dir/metadata.json not found which indicates that the installation did not start. Skipping uninstallation script."
         else
           echo "Running uninstallation script"
           ret=0
           /usr/local/bin/install_entrypoint.sh destroy || ret=$?
+
+          if [[ "$VARIABLES_LOCATION" == *osd* ]]; then
+            CLUSTER_ID=$(flexy/workdir/ocm list clusters --parameter search="name='$(params.CLUSTER_NAME)'" --columns id | sed -e 's/^ID\s*//')
+            [[ -z "$CLUSTER_ID" ]] && echo "OSD cluster is no longer running." && exit 0
+          else
+            exit $ret
+          fi
         fi
-        
-        if [ $ret == 0 ]; then
-          echo -e "\nRemoving directory $(params.CLUSTER_NAME)"
-          rm -rf $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)
-        fi
-        exit $ret       
       volumeMounts:
       - name: flexy-output
         mountPath: /mnt

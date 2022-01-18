@@ -54,6 +54,11 @@ spec:
                          latest nightly 4.7 release (unsupported)
           dev-preview/4.7.0-0.nightly-2020-11-25-114114
                          specific nightly release (unsupported, will disappear after some time)
+  - name: OSD_ENV
+    default: stage
+    description: |
+      Environment in which the OSD cluster will be installed. Will be ignored when installing OCP.
+      One of stage/prod.                      
   - name: TEMPLATE
     default: private-templates/functionality-testing/aos-4_7/ipi-on-osp/versioned-installer
     description: |
@@ -91,6 +96,8 @@ spec:
       value: $(params.LAUNCHER_VARS)
     - name: OPENSHIFT_VERSION
       value: $(params.OPENSHIFT_VERSION)
+    - name: OSD_ENV
+      value: $(params.OSD_ENV)  
     - name: TEMPLATE
       value: $(params.TEMPLATE)
   - name: clone-plumbing-git
@@ -103,7 +110,7 @@ spec:
       - name: url
         value: https://gitlab.cee.redhat.com/gitops/plumbing-gitops.git
       - name: deleteExisting
-        value: "true"
+        value: "false"
       - name: sslVerify
         value: "false"
     workspaces:
