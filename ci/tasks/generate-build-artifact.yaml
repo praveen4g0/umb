@@ -33,7 +33,7 @@ spec:
       default: "quay.io"
     - name: IMAGE_REPOSITORY
       description: Provide mirror registry repository details.
-      default: "openshift-gitops"  
+      default: "devtools_gitops"  
     - name: OPERATOR_ENVIRONMENT
       description: |
           specify p12n operator environment (stage, pre-stage)

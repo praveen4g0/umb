@@ -43,7 +43,7 @@ spec:
       default: stage
       description: |
         Environment in which the OSD cluster will be installed. Will be ignored when installing OCP.
-        One of stage/prod.                     
+        One of stage/prod.            
     - name: TEMPLATE
       default: private-templates/functionality-testing/aos-4_6/ipi-on-osp/versioned-installer
       description: |

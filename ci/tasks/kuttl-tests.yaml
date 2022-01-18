@@ -18,7 +18,7 @@ spec:
   - name: IMAGE
     type: string
     description: Bootstrap image with required tools
-    default: quay.io/praveen4g0/kuttl-tests:v1  
+    default: quay.io/devtools_gitops/kuttl:v1
   - name: RUN_AS
     description: Provide user privilege to runs tests with  (eg one of admin/non-admin)
     default: "admin"

@@ -14,7 +14,7 @@ spec:
       description: Hostname of the proxy server, port will be removed if present
   steps:
     - name: whitelist
-      image: quay.io/praveen4g0/release-tests:4.6.6
+      image: quay.io/devtools_gitops/kuttl:v1
       script: |
         #!/usr/bin/env bash
         set -euo pipefail
