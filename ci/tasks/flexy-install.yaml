@@ -82,7 +82,7 @@ spec:
         export HOME=/home/jenkins
         export INSTANCE_NAME_PREFIX="$(params.CLUSTER_NAME)"
         export LAUNCHER_VARS='$(params.LAUNCHER_VARS)'
-        export OCM_CLI_URL_PREFIX=https://github.com/openshift-online/ocm-cli/releases/download/v0.1.55
+        export OCM_CLI_URL_PREFIX=https://github.com/openshift-online/ocm-cli/releases/download/v0.1.60
         export OCM_SERVICE_NAME="ocm-$(params.OSD_ENV)"
         export VARIABLES_LOCATION="$(params.TEMPLATE)"
 
