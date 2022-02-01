@@ -1,0 +1,194 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: flexy-install-and-setup-operator
+spec:
+  params:
+    - default: linux/amd64
+      description: artifacts architecture
+      name: ARCH
+      type: string
+    - default: redhat-operators
+      description: >-
+        provide catalog-source name through which user have to subscribe
+        operator
+      name: CATALOG_SOURCE
+      type: string
+    - description: Cluster Name
+      name: CLUSTER_NAME
+      type: string
+    - default: stable
+      description: subscription channel
+      name: CHANNEL
+      type: string
+    - default: master
+      name: GIT_PRIVATE_TEMPLATES_BRANCH
+      type: string
+    - default: 'https://gitlab.cee.redhat.com/aosqe/flexy-templates.git'
+      name: GIT_PRIVATE_TEMPLATES_URI
+      type: string
+    - default: 'false'
+      description: flag to decide if provisioned cluster is disconnected
+      name: IS_DISCONNECTED
+      type: string
+    - description: >
+        Specify index image number (e.g. 138700) for pre-stage, generated tag
+        (e.g. v4.9-2111261545) for stage.
+
+        This param will be ignored if OPERATOR_ENVIRONMENT is prod.
+      name: INDEX
+      type: string
+    - name: LAUNCHER_VARS
+      type: string
+    - name: OPENSHIFT_VERSION
+      type: string
+    - description: 'specify p12n operator environment (eg:stage, pre-stage, prod)'
+      name: OPERATOR_ENVIRONMENT
+      type: string
+    - name: TEMPLATE
+      type: string
+    - default: devtools_gitops
+      name: IMAGE_REPOSITORY
+      type: string
+  tasks:
+    - name: provision-cluster
+      params:
+        - name: CLUSTER_NAME
+          value: $(params.CLUSTER_NAME)
+        - name: GIT_PRIVATE_TEMPLATES_BRANCH
+          value: $(params.GIT_PRIVATE_TEMPLATES_BRANCH)
+        - name: GIT_PRIVATE_TEMPLATES_URI
+          value: $(params.GIT_PRIVATE_TEMPLATES_URI)
+        - name: LAUNCHER_VARS
+          value: $(params.LAUNCHER_VARS)
+        - name: OPENSHIFT_VERSION
+          value: $(params.OPENSHIFT_VERSION)
+        - name: TEMPLATE
+          value: $(params.TEMPLATE)
+      taskRef:
+        kind: Task
+        name: flexy-install
+      timeout: 2h0m0s
+      workspaces:
+        - name: flexy-secrets
+          workspace: flexy-secrets
+        - name: install-dir
+          workspace: install-dir
+    - name: clone-plumbing-git
+      params:
+        - name: url
+          value: 'https://gitlab.cee.redhat.com/tekton/plumbing.git'
+        - name: deleteExisting
+          value: 'false'
+        - name: sslVerify
+          value: 'false'
+      runAfter:
+        - provision-cluster
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          subPath: plumbing-git
+          workspace: git
+    - name: setup-testing-accounts
+      params:
+        - name: CLUSTER_NAME
+          value: $(params.CLUSTER_NAME)
+      runAfter:
+        - clone-plumbing-git
+      taskRef:
+        kind: Task
+        name: setup-testing-accounts
+      workspaces:
+        - name: install-dir
+          workspace: install-dir
+        - name: plumbing-git
+          subPath: plumbing-git
+          workspace: git
+    - name: whitelist-domains
+      params:
+        - name: IS_DISCONNECTED
+          value: $(params.IS_DISCONNECTED)
+        - name: PROXY_HOST
+          value: $(tasks.provision-cluster.results.mirror-registry)
+      runAfter:
+        - provision-cluster
+        - clone-plumbing-git
+      taskRef:
+        kind: Task
+        name: whitelist-domains
+    - conditions:
+        - conditionRef: check-for-operator-environment
+          params:
+            - name: OPERATOR_ENVIRONMENT
+              value: $(params.OPERATOR_ENVIRONMENT)
+      name: generate-build-artifacts
+      params:
+        - name: ARCH
+          value: $(params.ARCH)
+        - name: CATALOG_SOURCE
+          value: $(params.CATALOG_SOURCE)
+        - name: IS_DISCONNECTED
+          value: $(params.IS_DISCONNECTED)
+        - name: INDEX
+          value: $(params.INDEX)
+        - name: MIRROR_REGISTRY
+          value: $(tasks.provision-cluster.results.mirror-registry)
+        - name: IMAGE_REPOSITORY
+          value: $(params.IMAGE_REPOSITORY)
+        - name: OPERATOR_ENVIRONMENT
+          value: $(params.OPERATOR_ENVIRONMENT)
+      runAfter:
+        - setup-testing-accounts
+        - whitelist-domains
+      taskRef:
+        kind: Task
+        name: generate-build-artifacts
+      workspaces:
+        - name: build-artifacts
+          subPath: build-artifacts
+          workspace: git
+    - name: mirror-operator-images
+      params:
+        - name: INDEX_IMAGE_DST
+          value: $(tasks.generate-build-artifacts.results.index-image-dst)
+        - name: INDEX_IMAGE_SRC
+          value: $(tasks.generate-build-artifacts.results.index-image-src)
+        - name: IS_DISCONNECTED
+          value: $(params.IS_DISCONNECTED)
+        - name: OPERATOR_ENVIRONMENT
+          value: $(params.OPERATOR_ENVIRONMENT)
+      retries: 1
+      runAfter:
+        - generate-build-artifacts
+      taskRef:
+        kind: Task
+        name: mirror-operator-images
+      workspaces:
+        - name: build-artifacts
+          subPath: build-artifacts
+          workspace: git
+    - name: configure-operator
+      params:
+        - name: CLUSTER_NAME
+          value: $(params.CLUSTER_NAME)
+        - name: CATALOG_SOURCE
+          value: $(params.CATALOG_SOURCE)
+        - name: IS_DISCONNECTED
+          value: $(params.IS_DISCONNECTED)
+        - name: OPERATOR_ENVIRONMENT
+          value: $(params.OPERATOR_ENVIRONMENT)
+      runAfter:
+        - mirror-operator-images
+      taskRef:
+        kind: Task
+        name: configure-operator
+      workspaces:
+        - name: build-artifacts
+          subPath: build-artifacts
+          workspace: git
+  workspaces:
+    - name: flexy-secrets
+    - name: install-dir
+    - name: git

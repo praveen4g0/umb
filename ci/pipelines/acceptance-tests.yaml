@@ -258,7 +258,7 @@ spec:
       - input: gitops-operator
         operator: in
         # values: ["$(params.TEST_SUITES[*])"]
-        values: ["gitops-operator","argo-operator"]
+        values: ["gitops-operator","argocd-operator"]
     runAfter:
       - install-gitops-operator
     workspaces:
