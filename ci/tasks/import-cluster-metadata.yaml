@@ -16,12 +16,12 @@ spec:
         - name: OCP_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: cluster-metadata-$(params.CLUSTER_NAME)
+              name: cluster-metadata
               key: password
         - name: OCP_URL
           valueFrom:
             secretKeyRef:
-              name: cluster-metadata-$(params.CLUSTER_NAME)
+              name: cluster-metadata
               key: url
       script: |
         #!/usr/bin/env bash
