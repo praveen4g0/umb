@@ -33,4 +33,4 @@ for res in applications applicationsets appprojects argocds; do
 done
 
 echo -e ">> Delete \"openshift-gitops\" project"
-oc delete project openshift-gitops
+oc delete --ignore-not-found=true project openshift-gitops

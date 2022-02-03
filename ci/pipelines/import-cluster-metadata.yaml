@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: import-cluster-metadata
+spec:
+  description: |
+    pipeline to import cluster metadata
+  params:
+  - name: CLUSTER_NAME
+    description: |
+      Cluster name - keep it short, use your name/nick if it's a temporary cluster.
+  workspaces:
+  - name: install-dir
+    description: Use a PVC named "install-dir".
+  tasks:
+  - name: import-cluster-metadata
+    taskRef:
+      name: import-cluster-metadata
+    workspaces:
+    - name: install-dir
+      workspace: install-dir
+    params:
+    - name: CLUSTER_NAME
+      value: $(params.CLUSTER_NAME)

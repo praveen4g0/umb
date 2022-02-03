@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  generateName: flexy-install-aws-
+  generateName: flexy-install-osd-
 spec:
   pipelineRef:
     name: flexy-install
@@ -9,14 +9,10 @@ spec:
   params:
   - name: CLUSTER_NAME
     value: choose_your_own_name
-  - name: LAUNCHER_VARS
-    value: >-
-      {
-      }
-  - name: OPENSHIFT_VERSION
-    value: fast-4.9
+  - name: OSD_ENV
+    value: stage
   - name: TEMPLATE
-    value: private-templates/functionality-testing/aos-4_9/ipi-on-aws/versioned-installer
+    value: private-templates/functionality-testing/osd-4/osd-on-aws/versioned-installer
   workspaces:
   - name: flexy-secrets
     secret:
@@ -28,7 +24,7 @@ spec:
     volumeClaimTemplate:
       spec:
         accessModes:
-          - ReadWriteMany
+          - ReadWriteOnce
         resources:
           requests:
             storage: 100Mi

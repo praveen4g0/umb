@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  generateName: flexy-install-aws-
+  generateName: flexy-install-aws-proxy-
 spec:
   pipelineRef:
     name: flexy-install
@@ -16,7 +16,7 @@ spec:
   - name: OPENSHIFT_VERSION
     value: fast-4.9
   - name: TEMPLATE
-    value: private-templates/functionality-testing/aos-4_9/ipi-on-aws/versioned-installer
+    value: private-templates/functionality-testing/aos-4_9/ipi-on-aws/versioned-installer-customer_vpc-http_proxy
   workspaces:
   - name: flexy-secrets
     secret:

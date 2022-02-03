@@ -1,0 +1,36 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: generate-ids
+spec:
+  params:
+    - name: CLUSTER_NAME_PREFIX
+      default: ""
+      description: |
+        Prefix of cluster name, the suffix will be generated in this task and published as a result
+        (e.g. cluster will be transformed to cluster052799). Note, on OpenStack there is a limit
+        of 14 characters in total therefore prefix can be only 8 characters long.
+    - name: RUN_NAME
+      description: |
+        Task run or pipeline run name.
+  results:
+    - name: cluster-name
+      description: Full cluster name (e.g. )
+    - name: path
+      description: Path for uploading all artifacts from given pipeline run.
+  steps:
+    - name: generate
+      image: registry.access.redhat.com/ubi8/ubi-minimal
+      script: |
+        #!/usr/bin/env bash
+        set -e
+
+        curr_ts=`date +"%y%m%d-%H%M%S"`
+        run_name=`sed 's/-[0-9a-z]\{5,6\}$//' <<< $(params.RUN_NAME)`
+        cluster_suffix=`date +"%m%d%2N"`
+
+        if [ ! -z $(params.CLUSTER_NAME_PREFIX) ]; then
+          echo -n $(params.CLUSTER_NAME_PREFIX)${cluster_suffix} | tee $(results.cluster-name.path)
+          echo
+        fi
+        echo -n CI/${run_name}/${curr_ts} | tee $(results.path.path)

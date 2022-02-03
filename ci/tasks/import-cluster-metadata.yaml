@@ -1,0 +1,43 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: import-cluster-metadata
+spec:
+  workspaces:
+    - name: install-dir
+  params:
+    - name: CLUSTER_NAME
+      description: Cluster name
+  steps:
+    - name: import-cluster-metadata
+      workingDir: $(workspaces.install-dir.path)
+      image: registry.access.redhat.com/ubi8/ubi-minimal
+      env:
+        - name: OCP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cluster-metadata
+              key: password
+        - name: OCP_URL
+          valueFrom:
+            secretKeyRef:
+              name: cluster-metadata
+              key: url
+      script: |
+        #!/usr/bin/env bash
+        set -o pipefail
+
+        [[ -z "$(params.CLUSTER_NAME)" ]] && \
+        echo "Cluster name cannot be empty" && exit 1
+
+        [[ -d "$(workspaces.install-dir.path)/$(params.CLUSTER_NAME)" ]] && \
+        echo "OCP cluster already exists" && exit 0
+
+        echo "Importing Cluster Metadata"
+
+        echo $(params.CLUSTER_NAME)
+        mkdir -p $(params.CLUSTER_NAME)/auth
+        echo ${OCP_PASSWORD} > $(params.CLUSTER_NAME)/auth/kubeadmin-password
+        echo ${OCP_URL} > $(params.CLUSTER_NAME)/auth/api-url
+        chmod -R 777 $(params.CLUSTER_NAME)
+        echo ${OCP_URL}

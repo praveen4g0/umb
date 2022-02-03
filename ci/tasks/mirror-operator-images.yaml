@@ -1,0 +1,76 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: mirror-operator-images
+spec:
+  workspaces:
+    - name: build-artifacts
+      readOnly: true
+  params:
+    - name: INDEX_IMAGE_DST
+      description: The destination for index image mirroring
+    - name: INDEX_IMAGE_SRC
+      description: The source for index image mirroring
+    - name: IS_DISCONNECTED
+      description: flag to identify disconnected nature of cluster
+      default: "false"
+    - name: OPERATOR_ENVIRONMENT
+      description: |
+          specify p12n operator environment (stage, pre-stage)
+          This task is not designed for `prod` operator environment
+      default: pre-stage
+  steps:
+    - name: mirror-operator-images
+      image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if [[ $(params.OPERATOR_ENVIRONMENT) == "prod" && $(params.IS_DISCONNECTED) == "false" ]]; then
+            echo -e "It's not necessary to mirror images in prod for non-disconnected scenario."
+            exit 0
+          fi
+
+          if [ ! -f "$(workspaces.build-artifacts.path)/pull-secret" ]; then
+            echo "Authfile not found in the workspace."
+            exit 1
+          fi
+          
+          # fail func to be called if something is not as expected 
+          function fail {
+            echo $1 >&2
+            exit 1
+          }
+
+          #retry func is called any command to do retries for 5 times and fail if it reaches threshold
+          function retry {
+            local n=1
+            local max=5
+            local delay=15
+            while true; do
+              "$@" && break || {
+                if [[ $n -lt $max ]]; then
+                  ((n++))
+                  echo "Command failed. Attempt $n/$max:"
+                  sleep $delay;
+                else
+                  fail "The command has failed after $n attempts."
+                fi
+              }
+            done
+          }
+
+          function cleanup {
+            find ./ -name "mirror.split.*" | xargs rm -r
+          }
+
+          trap cleanup ERR EXIT
+
+          REG_CREDS=$(workspaces.build-artifacts.path)/pull-secret
+
+          echo -e "Mirroring index image to $(params.INDEX_IMAGE_DST)"
+          oc image mirror $(params.INDEX_IMAGE_SRC)=$(params.INDEX_IMAGE_DST) --keep-manifest-list=true --filter-by-os=".*" -a $REG_CREDS --insecure
+
+          echo -e "Mirroring other operator images"
+          split $(workspaces.build-artifacts.path)/mapping.txt -l 10 mirror.split.
+          for i in mirror.split.*; do retry oc image mirror -f $i --keep-manifest-list=true --filter-by-os=".*" -a $REG_CREDS --insecure; done

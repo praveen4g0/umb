@@ -49,8 +49,12 @@ sed -e "s,\$AWS_ACCESS_KEY_ID,$AWS_ACCESS_KEY_ID,g" \
 echo -e "\nConfiguring Flexy secrets"
 sed -e "s,\$AWS_ACCESS_KEY_ID,$AWS_ACCESS_KEY_ID,g" \
     -e "s,\$AWS_SECRET_ACCESS_KEY,$AWS_SECRET_ACCESS_KEY,g" \
+    -e "s,\$AWS_OSD_ACCESS_KEY_ID,$AWS_OSD_ACCESS_KEY_ID,g" \
+    -e "s,\$AWS_OSD_SECRET_ACCESS_KEY,$AWS_OSD_SECRET_ACCESS_KEY,g" \
     -e "s,\$DYNDNS_USERNAME,$DYNDNS_USERNAME,g" \
     -e "s,\$DYNDNS_PASSWORD,$DYNDNS_PASSWORD,g" \
+    -e "s,\$OCM_TOKEN_PROD,$OCM_TOKEN_PROD,g" \
+    -e "s,\$OCM_TOKEN_STAGE,$OCM_TOKEN_STAGE,g" \
     -e "s,\$PSI_CLOUD_USERNAME,$PSI_CLOUD_USERNAME,g" \
     -e "s,\$PSI_CLOUD_PASSWORD,$PSI_CLOUD_PASSWORD,g" \
     -e "s,\$PULL_SECRET,$ENCODED_PULL_SECRET,g" \
@@ -61,3 +65,10 @@ sed -e "s,\$AWS_ACCESS_KEY_ID,$AWS_ACCESS_KEY_ID,g" \
     -e "s,\$SSH_PRIVATE_KEY,$ENCODED_SSH_PRIVATE_KEY,g" \
     -e "s,\$SSH_PUBLIC_KEY,$SSH_PUBLIC_KEY,g" \
     "$DIR/../../ci/secrets/flexy.yaml" | oc apply -f -
+
+echo -e "\nConfiguring image registry secrets"
+sed -e "s,\$BREW_USER,$BREW_USER,g" \
+    -e "s,\$BREW_PASS,$BREW_PASS,g" \
+    -e "s,\$QUAY_USER,$QUAY_USER,g" \
+    -e "s,\$QUAY_PASS,$QUAY_PASS,g" \
+    "$DIR/../../ci/secrets/registry.yaml" | oc apply -f -

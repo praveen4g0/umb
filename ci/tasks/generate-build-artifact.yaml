@@ -1,0 +1,201 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: generate-build-artifacts
+spec:
+  workspaces:
+    - name: build-artifacts
+  params:
+    - name: ARCH
+      description: artifacts architecture
+      default: "linux/amd64"
+    - name: CATALOG_SOURCE
+      description: provide catalog-source name through which user have to subscribe operator
+      default: custom-operators
+    - name: IS_DISCONNECTED
+      description: flag to decide if provisioned cluster is disconnected
+      default: "false"
+    - name: INDEX
+      description: |
+          curl -sSL "https://datagrepper.engineering.redhat.com/raw?topic=/topic/VirtualTopic.eng.ci.redhat-container-image.index.built&delta=172800&contains=gitops" | jq ".raw_messages[].msg.index"
+
+          gives you latest index images that has passed CVP tests, provide right index image version based on ocp_version you provision
+          Examples:
+          1. "index_image": "registry-proxy.engineering.redhat.com/rh-osbs/iib:28886", "ocp_version": "v4.5"
+              INDEX=28886
+          2. "index_image": "registry-proxy.engineering.redhat.com/rh-osbs/iib:28887", "ocp_version": "v4.6"
+              INDEX=28887
+          3. "index_image": "registry-proxy.engineering.redhat.com/rh-osbs/iib:28888", "ocp_version": "v4.7"
+              INDEX=28888
+          ....
+    - name: MIRROR_REGISTRY
+      description: Provide mirror registry details.
+      default: "quay.io"
+    - name: IMAGE_REPOSITORY
+      description: Provide mirror registry repository details.
+      default: "devtools_gitops"  
+    - name: OPERATOR_ENVIRONMENT
+      description: |
+          specify p12n operator environment (stage, pre-stage)
+          This task is not designed for `prod` operator environment
+      default: pre-stage
+  results:
+  - name: index-image-dst
+    description: The destination for index image mirroring
+  - name: index-image-src
+    description: The source for index image mirroring
+  steps:
+    - name: generate-build-artifacts
+      image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if which jq >/dev/null; then
+              echo "jq exists"
+          else
+              echo ">> Installing jq binary"
+              dnf install -y jq
+          fi
+
+          ENVSTAGE="stage"
+          export ENVIRONMENT=$(params.OPERATOR_ENVIRONMENT)
+
+          if [[ $(params.OPERATOR_ENVIRONMENT) == "prod" && $(params.IS_DISCONNECTED) == "false" ]]; then
+            echo -e "It's not necessary to generate build artifacts in prod for non-disconnected scenario."
+            exit 0
+          fi
+
+          test -z "$(params.INDEX)" && {
+              echo "INDEX env variable is required"
+              exit 1
+          }
+
+          test -z "$USERNAME" && {
+              echo "USERNAME env variable is required"
+              exit 1
+          }
+
+          test -z "$PASSWORD" && {
+              echo "PASSWORD env variable is required"
+              exit 1
+          }
+
+          if [ ! -f "/config/pull-secret" ]; then
+            echo "Authfile not provided as workspace."
+            exit 1
+          fi
+
+          cp /config/pull-secret $(workspaces.build-artifacts.path)/pull-secret
+          REG_CREDS=$(workspaces.build-artifacts.path)/pull-secret
+
+          MIRROR_REG=$(params.MIRROR_REGISTRY)
+          INDEX=$(params.INDEX)
+          if [[ ${ENVIRONMENT} == ${ENVSTAGE} ]]; then
+            BREW_IIB_PREFIX="brew.registry.redhat.io/rh-osbs/iib-pub-pending"
+          else
+            BREW_IIB_PREFIX="brew.registry.redhat.io/rh-osbs/iib"
+          fi
+          REGISTRY_IMAGE=$BREW_IIB_PREFIX:$INDEX
+          echo -e $REGISTRY_IMAGE
+
+          echo -e "Logging into $MIRROR_REG registry"
+          if [[ $(params.IS_DISCONNECTED) == "false" ]]; then
+            oc registry login --insecure=true --registry=$MIRROR_REG --auth-basic="${USERNAME}:${PASSWORD}" --to=$REG_CREDS
+          else
+            oc registry login --insecure=true --registry=$MIRROR_REG --auth-basic="dummy:dummy" --to=$REG_CREDS
+          fi
+
+          if [[ ${ENVIRONMENT} == ${ENVSTAGE} ]]; then
+            curr_ts=`date +"%y%m%d-%H%M%S"`
+            OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOSITORY)/redhat-operator-index:$INDEX-${curr_ts}
+          else
+            OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOSITORY)/redhat-operator-index:$INDEX
+          fi
+
+          echo -n $REGISTRY_IMAGE > $(results.index-image-src.path)
+          echo -n $OUTPUT_IMAGE > $(results.index-image-dst.path)
+
+          if [[ $(params.IS_DISCONNECTED) != "false" ]]; then
+             sha=$(oc image info $REGISTRY_IMAGE --filter-by-os=linux/amd64 --insecure=true -a $REG_CREDS -o json| jq ".listDigest"|tr -d '"')
+             OUTPUT_IMAGE=$MIRROR_REG/$(params.IMAGE_REPOSITORY)/redhat-operator-index@$sha
+          fi
+
+          MANIFESTS_DIR=manifests-iib
+          MAPPING_FILE=${MANIFESTS_DIR}/mapping.txt
+
+          echo "Generating mapping.txt using real mirror registry"
+          oc adm catalog mirror $REGISTRY_IMAGE $MIRROR_REG/$(params.IMAGE_REPOSITORY) --insecure --index-filter-by-os=$(params.ARCH) -a $REG_CREDS --manifests-only --to-manifests=${MANIFESTS_DIR}
+
+          cp ${MANIFESTS_DIR}/imageContentSourcePolicy.yaml $(workspaces.build-artifacts.path)/imageContentSourcePolicy.yaml
+          cp ${MANIFESTS_DIR}/imageContentSourcePolicy.yaml $(workspaces.build-artifacts.path)/image-content-source-policy.yaml
+
+          if [[ ${ENVIRONMENT} == ${ENVSTAGE} ]]; then
+            sed -i -e "s|registry.redhat.io/openshift-gitops-1-tech-preview/|brew.registry.redhat.io/rh-osbs/openshift-gitops-1-tech-preview-|g" \
+                  -e "s|registry.redhat.io/openshift-gitops-1/|brew.registry.redhat.io/rh-osbs/openshift-gitops-1-|g" \
+                  -e "s|registry.stage.redhat.io/openshift-gitops-1-tech-preview/|brew.registry.redhat.io/rh-osbs/openshift-gitops-1-tech-preview-|g" \
+                  -e "s|registry-proxy.engineering.redhat.com/openshift-gitops-1-tech-preview/|brew.registry.redhat.io/rh-osbs/openshift-gitops-1-tech-preview-|g" \
+                  -e "s|registry-proxy.engineering.redhat.com/rh-osbs|brew.registry.redhat.io/rh-osbs|g" \
+                  -e "s|registry.stage.redhat.io/rh-osbs|brew.registry.redhat.io/rh-osbs|g" \
+                  -e "s|registry.stage.redhat.io|brew.registry.redhat.io|g" \
+                  -e "s|registry-proxy.engineering.redhat.com|brew.registry.redhat.io|g" \
+                  ${MAPPING_FILE}
+          elif [[ ${ENVIRONMENT} != "prod" ]]; then
+            sed -i -e "s|registry.redhat.io/openshift-gitops-1-tech-preview/|brew.registry.redhat.io/rh-osbs/openshift-gitops-1-tech-preview-|g" \
+                  -e "s|registry.redhat.io/openshift-gitops-1/|brew.registry.redhat.io/rh-osbs/openshift-gitops-1-|g" \
+                  -e "s|registry-proxy.engineering.redhat.com/openshift-gitops-1-tech-preview/|brew.registry.redhat.io/rh-osbs/openshift-gitops-1-tech-preview-|g" \
+                  -e "s|registry-proxy.engineering.redhat.com/rh-osbs|brew.registry.redhat.io/rh-osbs|g" \
+                  -e "s|registry.stage.redhat.io/openshift-gitops-1-tech-preview/|brew.registry.redhat.io/rh-osbs/openshift-gitops-1-tech-preview-|g" \
+                  -e "s|registry.stage.redhat.io|brew.registry.redhat.io|g" \
+                  -e "s|registry-proxy.engineering.redhat.com|brew.registry.redhat.io|g" \
+                  ${MAPPING_FILE}
+          fi
+
+          # Please don't remove anything from the list, feel free to add any new image that appears in related_images section of CSV.
+          find_list="\
+          registry.access.redhat.com/ubi8/ubi-minimal \
+          registry.redhat.io/rhel8/redis-5 \
+          registry.redhat.io/rh-sso-7/sso74-openshift-rhel8 \
+          registry.redhat.io/openshift4/ose-haproxy-router \
+          openshift4/ose-cli \
+          gitops-1 \
+          "
+
+          for item in $find_list; do
+            grep -E "$item" ${MAPPING_FILE} >> final-mapping.txt
+          done
+
+          echo -e "Copying artifacts [catalog source, image content source policy, mapping.txt]..."
+          cat <<EOF > $(workspaces.build-artifacts.path)/catalog-source.yaml
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: CatalogSource
+          metadata:
+            name: $(params.CATALOG_SOURCE)
+            namespace: openshift-marketplace
+          spec:
+            sourceType: grpc
+            image: $OUTPUT_IMAGE
+            displayName: $(params.CATALOG_SOURCE)
+            updateStrategy:
+              registryPoll:
+                interval: 30m
+          EOF
+
+          cp final-mapping.txt $(workspaces.build-artifacts.path)/mapping.txt
+      volumeMounts:
+      - name: dockerconfig
+        mountPath: "/config"
+      env:
+        - name: USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: registry
+              key: quay-user
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: registry
+              key: quay-password
+  volumes:
+  - name: dockerconfig
+    secret:
+      secretName: flexy

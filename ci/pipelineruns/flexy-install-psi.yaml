@@ -34,4 +34,3 @@ spec:
         resources:
           requests:
             storage: 100Mi
-        storageClassName: csi-manila-ceph

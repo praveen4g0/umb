@@ -1,0 +1,52 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: whitelist-domains
+spec:
+  params:
+    - name: DOMAINS
+      description: Domains that should be added to Squid proxy whitelist
+      default: registry.npmjs.org .getcomposer.org .packagist.org oss.sonatype.org repo.maven.apache.org repo1.maven.org .pythonhosted.org .pypi.org .python.org .nuget.org github.com gitlab.com docker.io docker.com quay.io
+    - name: IS_DISCONNECTED
+      description: Flag to identify disconnected nature of cluster
+      default: "false"
+    - name: PROXY_HOST
+      description: Hostname of the proxy server, port will be removed if present
+  steps:
+    - name: whitelist
+      image: quay.io/devtools_gitops/kuttl:v1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        if [[ $(params.IS_DISCONNECTED) == "false" ]]; then
+          echo -e "It's not necessary to whitelist additional domains in non-disconnectd scenario."
+          exit 0
+        fi
+
+        PROXY_HOST=$(echo $(params.PROXY_HOST) | cut -d ":" -f1)
+
+        # TODO file has mode 0440 which is unacceptable by ssh even though it's set to 0400
+        # https://github.com/kubernetes/kubernetes/issues/57923
+        cp /secrets/psi-gitops-shared.pem /tmp
+        SSH_KEY=/tmp/psi-gitops-shared.pem
+        chmod 400 $SSH_KEY
+
+        echo "Updating squid.conf"
+        ssh -i ${SSH_KEY} -oStrictHostKeyChecking=no ec2-user@${PROXY_HOST} \
+          "sudo sed -i 's/\(acl whitelist .*\)/\1 $(params.DOMAINS) /' /srv/squid/etc/squid.conf"
+
+        echo "Restarting squid-proxy service"
+        ssh -i ${SSH_KEY} -oStrictHostKeyChecking=no ec2-user@${PROXY_HOST} \
+          "sudo systemctl restart squid-proxy.service"
+      volumeMounts:
+        - name: secrets
+          mountPath: /secrets
+  volumes:
+    - name: secrets
+      secret:
+        secretName: flexy
+        items:
+        - key: psi-gitops-shared.pem
+          path: psi-gitops-shared.pem
+          mode: 0400

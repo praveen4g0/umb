@@ -1,0 +1,14 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: import-cluster-metadata-
+spec:
+  pipelineRef:
+    name: import-cluster-metadata
+  params:
+  - name: CLUSTER_NAME
+    value: choose_your_own_name
+  workspaces:
+  - name: install-dir
+    persistentVolumeClaim:
+      claimName: install-dir
