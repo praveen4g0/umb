@@ -1,0 +1,52 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: flexy-install-and-install-operator-
+spec:
+  params:
+    - name: ARCH
+      value: linux/amd64
+    - name: CATALOG_SOURCE
+      value: redhat-operators
+    - name: CLUSTER_NAME
+      value: choose_your_own_name
+    - name: CHANNEL
+      value: stable
+    - name: GIT_PRIVATE_TEMPLATES_BRANCH
+      value: master
+    - name: GIT_PRIVATE_TEMPLATES_URI
+      value: 'https://gitlab.cee.redhat.com/aosqe/flexy-templates.git'
+    - name: IS_DISCONNECTED
+      value: 'false'
+    - name: INDEX
+      value: choose_your_index_number
+    - name: LAUNCHER_VARS
+      value: ''
+    - name: OPENSHIFT_VERSION
+      value: fast-4.9
+    - name: OPERATOR_ENVIRONMENT
+      value: pre-stage
+    - name: TEMPLATE
+      value: >-
+        private-templates/functionality-testing/aos-4_9/ipi-on-aws/versioned-installer-customer_vpc-disconnected
+    - name: IMAGE_REPOSITORY
+      value: devtools_gitops
+  pipelineRef:
+    name: flexy-install-and-install-operator
+  serviceAccountName: pipeline
+  timeout: 5h0m0s
+  workspaces:
+    - name: flexy-secrets
+      secret:
+        secretName: flexy
+    - name: install-dir
+      persistentVolumeClaim:
+        claimName: install-dir
+    - name: git
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 200Mi
