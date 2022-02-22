@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: flexy-install-and-setup-operator
+  name: flexy-install-and-install-operator
 spec:
   params:
     - default: linux/amd64
@@ -113,7 +113,6 @@ spec:
         - name: PROXY_HOST
           value: $(tasks.provision-cluster.results.mirror-registry)
       runAfter:
-        - provision-cluster
         - clone-plumbing-git
       taskRef:
         kind: Task
@@ -188,6 +187,25 @@ spec:
         - name: build-artifacts
           subPath: build-artifacts
           workspace: git
+    - name: install-gitops-operator
+      taskRef:
+        name: install-gitops-operator
+      runAfter:
+        - configure-operator
+      params:
+        - name: CATALOG_SOURCE
+          value: $(params.CATALOG_SOURCE)
+        - name: CHANNEL
+          value: $(params.CHANNEL)
+        - name: CLUSTER_NAME
+          value: $(params.CLUSTER_NAME)
+      timeout: 15m
+      workspaces:
+      - name: install-dir
+        workspace: install-dir
+      - name: plumbing-git
+        workspace: git
+        subPath: plumbing-git
   workspaces:
     - name: flexy-secrets
     - name: install-dir

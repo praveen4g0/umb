@@ -28,7 +28,7 @@ spec:
           #!/usr/bin/env bash
           set -euo pipefail
 
-          if [[ $(params.OPERATOR_ENVIRONMENT) == "prod" ]]; then
+          if [[ $(params.OPERATOR_ENVIRONMENT) == "prod" && $(params.IS_DISCONNECTED) == "false" ]]; then
             echo -e "It's not necessary to apply image content source policy and create a custom operator source in prod."
             exit 0
           fi
