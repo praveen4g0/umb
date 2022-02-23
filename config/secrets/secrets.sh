@@ -72,3 +72,9 @@ sed -e "s,\$BREW_USER,$BREW_USER,g" \
     -e "s,\$QUAY_USER,$QUAY_USER,g" \
     -e "s,\$QUAY_PASS,$QUAY_PASS,g" \
     "$DIR/../../ci/secrets/registry.yaml" | oc apply -f -
+
+echo -e "\nConfiguring Uploader secrets"
+sed -e "s/\$UPLOADER_USERNAME/$UPLOADER_USERNAME/" \
+    -e "s/\$UPLOADER_PASSWORD/$UPLOADER_PASSWORD/" \
+    -e "s|\$UPLOADER_HOST|$UPLOADER_HOST|" \
+    "$DIR/../../ci/secrets/uploader.yaml" | oc apply -f -  
