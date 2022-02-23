@@ -1,0 +1,20 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: prune-old-taskruns
+spec:
+  schedule: "0 12 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: prune-old-pipelineruns
+            image: gcr.io/tekton-releases/dogfooding/tkn
+            imagePullPolicy: IfNotPresent
+            args:
+            - /bin/sh
+            - -c
+            - tkn task start prune-resources --prefix-name prune-taskruns -p AGE="10 days" -p RESOURCE_TYPE=taskrun
+          restartPolicy: OnFailure
+          serviceAccountName: pipeline

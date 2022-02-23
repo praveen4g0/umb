@@ -1,0 +1,33 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: prune-resources
+spec:
+  params:
+    - name: AGE
+      default: '7 days'
+      description: |
+        Prune resources that are older than this value. Use whichever string 
+        that is accepted by Linux utility "date", e.g. "5 minutes", "4 days" or "2 weeks".
+    - name: RESOURCE_TYPE
+      default: 'pipelinerun'
+  steps:
+    - name: delete-pipelinerun
+      image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      script: |
+        #!/usr/bin/env bash
+        set -e
+
+        resources=($(oc get $(params.RESOURCE_TYPE) -o go-template --template \
+          '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' | \
+          awk '$2 <= "'$(date -d'now-$(params.AGE)' -Ins --utc | sed 's/+0000/Z/')'" { print $1 }'))
+        
+        if [ ${#resources[@]} -eq 0 ]; then
+          echo "There are no $(params.RESOURCE_TYPE)s older than $(params.AGE) to remove."
+          exit 0
+        fi
+
+        for resource in ${resources[@]}; do
+          oc delete $(params.RESOURCE_TYPE) $resource
+        done
+
