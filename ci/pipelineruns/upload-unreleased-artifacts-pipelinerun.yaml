@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: upload-unreleased-build-artifacts-
+spec:
+  pipelineRef:
+    name: upload-unreleased-build-artifacts
+  timeout: 1h
+  params:
+  - name: INDEX
+    value: "xxxxxx"
+  - name: OPERATOR_ENVIRONMENT
+    value: 'pre-stage'  
+  - name: GITOPS_VERSION
+    value: "1.x.x"
+  workspaces:
+  - name: build-artifacts
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Mi
