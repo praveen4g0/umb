@@ -45,13 +45,6 @@ spec:
 
         cp $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/installer-artifacts.zip .
 
-        function remove_artifacts() {
-          echo -e "\nRemoving directory $(params.CLUSTER_NAME)"
-          rm -rf $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)
-        }
-
-        trap remove_artifacts ERR EXIT
-
         if [[ -z `zip -sf $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/installer-artifacts.zip | grep fips_info`
           &&  "$VARIABLES_LOCATION" == *-on-osp* ]]; then
           echo "File fips_info not found which indicates that no resources were created during installation. Skipping uninstallation script."
@@ -73,6 +66,41 @@ spec:
       volumeMounts:
       - name: flexy-output
         mountPath: /mnt
+    - name: cleanup-cluster
+      image: registry.access.redhat.com/ubi8/ubi-minimal
+      workingDir: $(workspaces.install-dir.path)
+      env:
+        - name: UPLOADER_HOST
+          valueFrom:
+            secretKeyRef:
+              name: uploader
+              key: uploader-host
+        - name: UPLOADER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: uploader
+              key: uploader-username
+        - name: UPLOADER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: uploader
+              key: uploader-password
+      script: |
+        #!/usr/bin/env bash
+        set -e
+
+        if [ ! -d "$(workspaces.install-dir.path)/$(params.CLUSTER_NAME)" ]; then
+          echo "Directory \"$(params.CLUSTER_NAME)\" does not exist. List of existing directories:"
+          ls "$(workspaces.install-dir.path)" | grep -v "lost+found"
+          exit 1
+        fi
+
+        echo "Removing uploaded artifacts from ${UPLOADER_HOST}"
+        curl -k -s -u ${UPLOADER_USERNAME}:${UPLOADER_PASSWORD} -F path=clusters/$(params.CLUSTER_NAME) \
+        -X DELETE ${UPLOADER_HOST}/upload || continue
+
+        echo -e "\nRemoving directory $(params.CLUSTER_NAME)"
+        rm -rf $(params.CLUSTER_NAME)
   volumes:
   - name: flexy-output
     emptyDir: {}
