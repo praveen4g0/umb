@@ -1,0 +1,11 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: umb-producer
+spec:
+  to:
+    kind: Service
+    name: umb-producer
+    weight: 100
+  port:
+    targetPort: 8080

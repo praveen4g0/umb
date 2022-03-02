@@ -1,0 +1,51 @@
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: umb-consumer
+  labels:
+    app: umb-consumer
+spec:
+  replicas: 1
+  strategy:
+    type: Rolling
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - umb-consumer
+        from:
+          kind: ImageStreamTag
+          name: 'umb:latest'
+  template:
+    metadata:
+      name: "umb-consumer"
+      labels:
+        app: umb-consumer
+    spec:
+      containers:
+        - name: umb-consumer
+          imagePullPolicy: Always
+          command: ["python", "./consumer.py"]
+          resources:
+            limits:
+              cpu: 100m
+              memory: 500Mi
+          env:
+            - name: CONFIG_FILE
+              value: /etc/umb/config.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/umb
+            - name: umb-certs
+              mountPath: /etc/umb-certs
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: "umb"
+        - name: umb-certs
+          secret:
+            defaultMode: 420
+            secretName: umb-certs

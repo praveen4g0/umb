@@ -1,0 +1,27 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: umb
+  labels:
+    app: umb
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'umb:latest'
+  strategy:
+    type: Docker
+    dockerStrategy:
+      env:
+        - name: GIT_SSL_NO_VERIFY
+          value: 'true'
+  source:
+    type: Git
+    git:
+      uri: 'https://gitlab.cee.redhat.com/gitops/plumbing-gitops.git'
+      ref: main
+    contextDir: images/umb
+  triggers:
+    - type: ConfigChange
+  runPolicy: Serial
+
