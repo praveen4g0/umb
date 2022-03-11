@@ -1,0 +1,109 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: upload-unreleased-build-artifacts
+spec:
+  params:
+    - default: linux/amd64
+      description: artifacts architecture
+      name: ARCH
+      type: string
+    - name: CATALOG_SOURCE
+      description: Name of the custom catalog source that will be used to install Pipelines operator
+      default: custom-operators
+    - name: INDEX
+      description: |
+        Specify index image number (e.g. 138700) for pre-stage, keep empty if running for the first time in stage.
+        This param will be ignored if OPERATOR_ENVIRONMENT is prod.
+
+        curl -sSL "https://datagrepper.engineering.redhat.com/raw?topic=/topic/VirtualTopic.eng.ci.redhat-container-image.index.built&delta=172800&contains=pipelines" | jq ".raw_messages[].msg.index"
+
+        gives you latest index images that has passed CVP tests, provide right index image version based on ocp_version you provision
+        Examples:
+        1. "index_image": "registry-proxy.engineering.redhat.com/rh-osbs/iib:28886", "ocp_version": "v4.5"
+            INDEX=28886
+        2. "index_image": "registry-proxy.engineering.redhat.com/rh-osbs/iib:28887", "ocp_version": "v4.6"
+            INDEX=28887
+        3. "index_image": "registry-proxy.engineering.redhat.com/rh-osbs/iib:28888", "ocp_version": "v4.7"
+            INDEX=28888
+      default: ""
+    - name: MIRROR_REGISTRY
+      description: Registry to which unreleased images will be mirrored
+      default: "quay.io"
+    - default: devtools_gitops
+      name: IMAGE_REPOSITORY
+      type: string  
+    - default: 'false'
+      description: flag to decide if provisioned cluster is disconnected
+      name: IS_DISCONNECTED
+    - name: OPERATOR_ENVIRONMENT
+      description: |
+        Specify if the unreleased build is "stage" or "pre-stage".
+        This pipeline is not designed for "prod" operator environment.
+      default: pre-stage
+    - name: GITOPS_VERSION
+      description: Version of OpenShift Gitops tied to specified index image, e.g. 1.5.2
+  tasks:
+    - name: generate-build-artifacts
+      conditions:
+      - conditionRef: check-for-operator-environment
+        params:
+        - name: OPERATOR_ENVIRONMENT
+          value: $(params.OPERATOR_ENVIRONMENT)
+      taskRef:
+        name: generate-build-artifacts
+      params:
+      - name: ARCH
+        value: $(params.ARCH)
+      - name: CATALOG_SOURCE
+        value: $(params.CATALOG_SOURCE)
+      - name: IS_DISCONNECTED
+        value: $(params.IS_DISCONNECTED)  
+      - name: INDEX
+        value: $(params.INDEX)
+      - name: MIRROR_REGISTRY
+        value: $(params.MIRROR_REGISTRY)
+      - name: IMAGE_REPOSITORY
+        value: $(params.IMAGE_REPOSITORY)  
+      - name: OPERATOR_ENVIRONMENT
+        value: $(params.OPERATOR_ENVIRONMENT)
+      workspaces:
+      - name: build-artifacts
+        workspace: build-artifacts
+    - name: mirror-operator-images
+      taskRef:
+        name: mirror-operator-images
+      params:
+      - name: INDEX_IMAGE_DST
+        value: $(tasks.generate-build-artifacts.results.index-image-dst)
+      - name: INDEX_IMAGE_SRC
+        value: $(tasks.generate-build-artifacts.results.index-image-src)
+      - name: IS_DISCONNECTED
+        value: $(params.IS_DISCONNECTED)  
+      - name: OPERATOR_ENVIRONMENT
+        value: $(params.OPERATOR_ENVIRONMENT)
+      retries: 2
+      runAfter:
+      - generate-build-artifacts
+      workspaces:
+      - name: build-artifacts
+        workspace: build-artifacts
+    - name: upload-artifacts
+      taskRef:
+        name: upload-artifacts
+      params:
+      - name: ARTIFACTS
+        value:
+        - imageContentSourcePolicy.yaml
+        - image-content-source-policy.yaml
+        - catalog-source.yaml
+        - mapping.txt
+      - name: UPLOAD_PATH
+        value: builds/$(params.GITOPS_VERSION)/$(tasks.generate-build-artifacts.results.index)
+      runAfter:
+      - mirror-operator-images
+      workspaces:
+      - name: input
+        workspace: build-artifacts
+  workspaces:
+  - name: build-artifacts

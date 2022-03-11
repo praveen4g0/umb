@@ -57,6 +57,22 @@ spec:
     - name: install-cluster
       workingDir: /mnt
       image: docker-registry.upshift.redhat.com/flexy/ocp4:v1.10
+      env:
+        - name: UPLOADER_HOST
+          valueFrom:
+            secretKeyRef:
+              name: uploader
+              key: uploader-host
+        - name: UPLOADER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: uploader
+              key: uploader-username
+        - name: UPLOADER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: uploader
+              key: uploader-password
       script: |
         #!/usr/bin/env bash
         set -o pipefail
@@ -167,6 +183,15 @@ spec:
           else
             echo -n "quay.io" > $(results.mirror-registry.path)
           fi
+
+          for FILE in "installer-artifacts.zip" "users.spec" "envvars" "auth/api-url" "auth/kubeadmin-password" "auth/kubeconfig" "mirror-reg"; do
+            if [ -f ${DEST_DIR}/${FILE} ]; then
+              curl -k -s -u ${UPLOADER_USERNAME}:${UPLOADER_PASSWORD} \
+                -F path=clusters/$(params.CLUSTER_NAME)/${FILE} \
+                -F file=@${DEST_DIR}/${FILE} \
+                ${UPLOADER_HOST}/upload
+            fi
+          done
         }
         trap archive_artifacts ERR EXIT
 
