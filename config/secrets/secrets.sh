@@ -24,6 +24,21 @@ if [ ! -f "$DIR/psi-gitops-shared.pub" ]; then
   exit 2
 fi
 
+if [ ! -f "$DIR/openshift-gitops-robot.cert" ]; then
+  echo "You have to provide file $DIR/openshift-gitops-robot.cert! Ask any QE team member to share it with you."
+  exit 2
+fi
+
+if [ ! -f "$DIR/openshift-gitops-robot.key" ]; then
+  echo "You have to provide file $DIR/openshift-gitops-robot.key! Ask any QE team member to share it with you."
+  exit 2
+fi
+
+if [ ! -f "$DIR/RH-IT-Root-CA.crt" ]; then
+  echo "You have to provide file $DIR/RH-IT-Root-CA.crt! Ask any QE team member to share it with you."
+  exit 2
+fi
+
 source "$DIR/secrets.env"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -35,6 +50,9 @@ fi
 ENCODED_PULL_SECRET=$(cat $DIR/pull-secret | $ENCODE_BASE64)
 ENCODED_SSH_PRIVATE_KEY=$(cat $DIR/psi-gitops-shared.pem | $ENCODE_BASE64)
 SSH_PUBLIC_KEY=$(cat $DIR/psi-gitops-shared.pub)
+UMB_PROD_SSL_CERT=$(cat $DIR/openshift-gitops-robot.cert)
+ENCODED_UMB_PROD_SSL_KEY=$(cat $DIR/openshift-gitops-robot.key | $ENCODE_BASE64)
+RH_IT_ROOT_CA=$(cat $DIR/RH-IT-Root-CA.crt)
 QUAY_IO_USERNAME=$(cat $DIR/pull-secret | jq -r '.auths["quay.io"].auth' | base64 -d | cut -d":" -f1)
 QUAY_IO_PASSWORD=$(cat $DIR/pull-secret | jq -r '.auths["quay.io"].auth' | base64 -d | cut -d":" -f2)
 REGISTRY_RH_IO_USERNAME=$(cat $DIR/pull-secret | jq -r '.auths["registry.redhat.io"].auth' | base64 -d | cut -d":" -f1)
@@ -77,4 +95,10 @@ echo -e "\nConfiguring Uploader secrets"
 sed -e "s/\$UPLOADER_USERNAME/$UPLOADER_USERNAME/" \
     -e "s/\$UPLOADER_PASSWORD/$UPLOADER_PASSWORD/" \
     -e "s|\$UPLOADER_HOST|$UPLOADER_HOST|" \
-    "$DIR/../../ci/secrets/uploader.yaml" | oc apply -f -  
+    "$DIR/../../ci/secrets/uploader.yaml" | oc apply -f -
+
+echo -e "\nConfiguring umb secrets"
+sed -e "s,\$UMB_PROD_SSL_CERT,$UMB_PROD_SSL_CERT,g" \
+    -e "s,\$ENCODED_UMB_PROD_SSL_KEY,$ENCODED_UMB_PROD_SSL_KEY,g" \
+    -e "s,\$RH_IT_ROOT_CA,$RH_IT_ROOT_CA,g" \
+    "$DIR/../../ci/secrets/umb.yaml" | oc apply -f -

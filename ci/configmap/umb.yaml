@@ -1,0 +1,20 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: umb
+data:
+  config.yaml: |-
+    amq:
+      url:
+        - amqps://umb.api.redhat.com:5671
+      certificate: /etc/umb-certs/cert.crt
+      private_key: /etc/umb-certs/cert.key
+      RH_IT_ROOT_CA: /etc/umb-certs/ca.crt
+      consumer: Consumer.openshift-gitops-robot
+    subscriber:
+      - topic: VirtualTopic.qe.ci.product-scenario.build.complete.>
+        selector: artifact.products[0].nvr,openshift-gitops
+        sink_url: <update_sink_url_here>
+      - topic: VirtualTopic.eng.ci.redhat-container-image.index.built.>
+        selector: artifact.nvr,openshift-gitops-operator-bundle-container
+        sink_url: <update_sink_url_here>
