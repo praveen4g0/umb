@@ -1,0 +1,26 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: interop
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - name: interop-trigger
+      interceptors:
+        - ref:
+            name: "cel"
+          params:
+            - name: "filter"
+              value: ''
+            - name: "overlays"
+              value:
+                - key: flexy_template_version
+                  expression: "body.artifact.products[1].version.replace('.','_')"
+                - key: ocp_build
+                  expression: >-
+                    "body.artifact.products[1].external_build_index_url.split('/')[7]"
+      bindings:
+       - kind:  TriggerBinding 
+         ref: interop
+      template:
+        ref: interop

@@ -1,0 +1,373 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: acceptance-tests-interop
+spec:
+  params:
+  - name: ARCH
+    description: artifacts architecture
+    default: "linux/amd64"
+  - name: BOOTSTRAP_IMAGE
+    default: quay.io/praveen4g0/kuttl-tests:v1
+  - name: CATALOG_SOURCE
+    description: provide catalog-source name through which user have to subscribe operator
+    default: redhat-operators
+  - name: CHANNEL
+    description: subscription channel
+    default: stable
+  - name: CLUSTER_NAME
+    description: Cluster Name
+  - name: EXTERNAL_BUILD_ID
+    description: build ID that we get from UMB message
+    default: ""
+  - name: EXTERNAL_BUILD_URL
+    description: build URL that we get from UMB interop message
+    default: ""    
+  - name: GIT_PRIVATE_TEMPLATES_BRANCH
+    default: master
+  - name: GIT_PRIVATE_TEMPLATES_URI
+    default: https://gitlab.cee.redhat.com/aosqe/flexy-templates.git 
+  - name: INDEX
+    description: specify index image (eg:42312,...), leave empty if OPERATOR_ENVIRONMENT is prod
+    default: ""
+  - name: IS_DISCONNECTED
+    description: flag to decide if provisioned cluster is disconnected
+    default: "false"
+  - name: IS_INTEROP
+    description: sends results back to interop team if the param is set to True/true
+    default: "false"
+  - name: KEEP_CLUSTER
+    description: Do not destroy the cluster if the value is set to True/true
+    default: "false"
+  - name: LAUNCHER_VARS
+    default: ""
+  - name: MSG_ID
+    description: message ID of the UMB message
+    default: ""  
+  - name: OPENSHIFT_VERSION
+  - name: OPERATOR_ENVIRONMENT
+    description: specify p12n operator environment (e.g. prod, stage, pre-stage)
+  - name: OSD_ENV
+    default: stage
+    description: |
+      Environment in which the OSD cluster will be installed. Will be ignored when installing OCP.
+      One of stage/prod.
+  - name: REPORTING_TYPE
+    default: xml
+  - name: KUTTL_TESTS_BRANCH
+    description: placeholder to provide release-tests branch (default-> master)
+  - name: KUTTL_TESTS_DIRECTORY
+    default: gitops-operator  
+  - name: TEMPLATE
+  - name: IMAGE_REPOSITORY
+    type: string
+    default: openshift-gitops  
+  workspaces:
+  - name: flexy-secrets
+  - name: git
+  - name: install-dir
+  tasks:
+  - name: generate-ids
+    taskRef:
+      name: generate-ids
+    params:
+    - name: CLUSTER_NAME_PREFIX
+      value: $(params.CLUSTER_NAME)
+    - name: RUN_NAME
+      value: $(context.pipelineRun.name)
+  - name: provision-cluster
+    taskRef:
+      name: flexy-install
+    workspaces:
+    - name: flexy-secrets
+      workspace: flexy-secrets
+    - name: install-dir
+      workspace: install-dir
+    params:
+    - name: CLUSTER_NAME
+      value: $(tasks.generate-ids.results.cluster-name)
+    - name: GIT_PRIVATE_TEMPLATES_BRANCH
+      value: $(params.GIT_PRIVATE_TEMPLATES_BRANCH)
+    - name: GIT_PRIVATE_TEMPLATES_URI
+      value: $(params.GIT_PRIVATE_TEMPLATES_URI)
+    - name: LAUNCHER_VARS
+      value: $(params.LAUNCHER_VARS)
+    - name: OPENSHIFT_VERSION
+      value: $(params.OPENSHIFT_VERSION)
+    - name: OSD_ENV
+      value: $(params.OSD_ENV)
+    - name: TEMPLATE
+      value: $(params.TEMPLATE)
+    runAfter:
+    - generate-ids
+  - name: clone-plumbing-git
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    params:
+      - name: url
+        value: https://gitlab.cee.redhat.com/gitops/plumbing-gitops.git
+      - name: deleteExisting
+        value: "false"
+      - name: sslVerify
+        value: "false"
+    workspaces:
+    - name: output
+      workspace: git
+      subPath: plumbing-git
+  - name: clone-kuttl-tests-git
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    params:
+      - name: url
+        value: https://gitlab.cee.redhat.com/gitops/operator-e2e.git
+      - name: deleteExisting
+        value: "false"
+      - name: sslVerify
+        value: "false"
+      - name: revision
+        value: $(params.KUTTL_TESTS_BRANCH)
+    workspaces:
+    - name: output
+      workspace: git
+      subPath: kuttl-tests-git
+  - name: setup-testing-accounts
+    taskRef:
+      name: setup-testing-accounts
+    runAfter:
+      - provision-cluster
+      - clone-plumbing-git
+      - clone-kuttl-tests-git
+    params:
+      - name: CLUSTER_NAME
+        value: $(tasks.generate-ids.results.cluster-name)
+    workspaces:
+    - name: install-dir
+      workspace: install-dir
+    - name: plumbing-git
+      workspace: git
+      subPath: plumbing-git
+  - name: whitelist-domains
+    taskRef:
+      name: whitelist-domains
+    runAfter:
+      - provision-cluster
+      - clone-plumbing-git
+      - clone-kuttl-tests-git
+    params:
+      - name: IS_DISCONNECTED
+        value: $(params.IS_DISCONNECTED)
+      - name: PROXY_HOST
+        value: $(tasks.provision-cluster.results.mirror-registry)
+  - name: generate-build-artifacts
+    conditions:
+    - conditionRef: check-for-operator-environment
+      params:
+        - name: OPERATOR_ENVIRONMENT
+          value: $(params.OPERATOR_ENVIRONMENT)
+    taskRef:
+      name: generate-build-artifacts
+    runAfter:
+      - provision-cluster
+      - clone-plumbing-git
+      - clone-kuttl-tests-git
+    params:
+      - name: ARCH
+        value: $(params.ARCH)
+      - name: CATALOG_SOURCE
+        value: $(params.CATALOG_SOURCE)
+      - name: IS_DISCONNECTED
+        value: $(params.IS_DISCONNECTED)
+      - name: INDEX
+        value: $(params.INDEX)
+      - name: MIRROR_REGISTRY
+        value: $(tasks.provision-cluster.results.mirror-registry)
+      - name: IMAGE_REPOSITORY
+        value: $(params.IMAGE_REPOSITORY)
+      - name: OPERATOR_ENVIRONMENT
+        value: $(params.OPERATOR_ENVIRONMENT)
+    workspaces:
+      - name: build-artifacts
+        workspace: git
+        subPath: build-artifacts
+  - name: mirror-operator-images
+    taskRef:
+      name: mirror-operator-images
+    runAfter:
+    - generate-build-artifacts
+    params:
+      - name: INDEX_IMAGE_DST
+        value: $(tasks.generate-build-artifacts.results.index-image-dst)
+      - name: INDEX_IMAGE_SRC
+        value: $(tasks.generate-build-artifacts.results.index-image-src)
+      - name: IS_DISCONNECTED
+        value: $(params.IS_DISCONNECTED)
+      - name: OPERATOR_ENVIRONMENT
+        value: $(params.OPERATOR_ENVIRONMENT)
+    workspaces:
+      - name: build-artifacts
+        workspace: git
+        subPath: build-artifacts
+  - name: configure-operator
+    taskRef:
+      name: configure-operator
+    runAfter:
+    - mirror-operator-images
+    params:
+      - name: CLUSTER_NAME
+        value: $(tasks.generate-ids.results.cluster-name)
+      - name: CATALOG_SOURCE
+        value: $(params.CATALOG_SOURCE)
+      - name: IS_DISCONNECTED
+        value: $(params.IS_DISCONNECTED)
+      - name: OPERATOR_ENVIRONMENT
+        value: $(params.OPERATOR_ENVIRONMENT)
+    workspaces:
+      - name: build-artifacts
+        workspace: git
+        subPath: build-artifacts
+  - name: install-gitops-operator
+    taskRef:
+      name: install-gitops-operator
+    runAfter:
+      - setup-testing-accounts
+      - whitelist-domains
+      - configure-operator
+    params:
+      - name: CATALOG_SOURCE
+        value: $(params.CATALOG_SOURCE)
+      - name: CHANNEL
+        value: $(params.CHANNEL)
+      - name: CLUSTER_NAME
+        value: $(tasks.generate-ids.results.cluster-name)
+    timeout: 15m
+    workspaces:
+    - name: install-dir
+      workspace: install-dir
+    - name: plumbing-git
+      workspace: git
+      subPath: plumbing-git
+  - name: run-kuttl-tests
+    taskRef:
+      name: kuttl-tests
+    params:
+      - name: CLUSTER_NAME
+        value: $(tasks.generate-ids.results.cluster-name)
+      - name: DIRECTORY
+        value: $(params.KUTTL_TESTS_DIRECTORY)
+      - name: IMAGE
+        value: $(params.BOOTSTRAP_IMAGE)
+      - name: RUN_AS
+        value: "admin"
+      - name: REPORTING_TYPE
+        value: $(params.REPORTING_TYPE)  
+      - name: TEST_SUITE
+        value: sequential
+    timeout: 30m
+    when:
+      - input: gitops-operator
+        operator: in
+        # values: ["$(params.TEST_SUITES[*])"]
+        values: ["gitops-operator","argocd-operator"]
+    runAfter:
+      - install-gitops-operator
+    workspaces:
+      - name: install-dir
+        workspace: install-dir
+      - name: kuttl-tests-git
+        workspace: git
+        subPath: kuttl-tests-git
+  - name: run-kuttl-tests
+    taskRef:
+      name: kuttl-tests
+    params:
+      - name: CLUSTER_NAME
+        value: $(tasks.generate-ids.results.cluster-name)
+      - name: DIRECTORY
+        value: $(params.KUTTL_TESTS_DIRECTORY)
+      - name: IMAGE
+        value: $(params.BOOTSTRAP_IMAGE)
+      - name: RUN_AS
+        value: "admin"
+      - name: REPORTING_TYPE
+        value: $(params.REPORTING_TYPE) 
+      - name: TEST_SUITE
+        value: parallel
+    timeout: 30m
+    when:
+      - input: gitops-operator
+        operator: in
+        # values: ["$(params.TEST_SUITES[*])"]
+        values: ["gitops-operator","argocd-operator"]
+    runAfter:
+      - install-gitops-operator
+    workspaces:
+      - name: install-dir
+        workspace: install-dir
+      - name: kuttl-tests-git
+        workspace: git
+        subPath: kuttl-tests-git
+  finally:
+    - name: flexy-uninstall
+      taskRef:
+        name: flexy-uninstall
+      workspaces:
+      - name: flexy-secrets
+        workspace: flexy-secrets
+      - name: install-dir
+        workspace: install-dir
+      params:
+      - name: CLUSTER_NAME
+        value: $(tasks.generate-ids.results.cluster-name)
+      when:
+        - input: $(tasks.provision-cluster.status)
+          operator: in
+          values: ["Failed"]
+    - name: flexy-uninstall-2
+      taskRef:
+        name: flexy-uninstall
+      workspaces:
+      - name: flexy-secrets
+        workspace: flexy-secrets
+      - name: install-dir
+        workspace: install-dir
+      params:
+      - name: CLUSTER_NAME
+        value: $(tasks.generate-ids.results.cluster-name)
+      when:
+        - input: $(tasks.provision-cluster.status)
+          operator: in
+          values: ["Succeeded"]
+        - input: $(params.KEEP_CLUSTER)
+          operator: notin
+          values: ["True", "true"]
+    - name: send-interop-notification
+      taskRef:
+        name: send-interop-notification
+      params:
+        - name: ARTIFACTS
+          value: >-
+            $(tasks.generate-ids.results.url)/$(params.KUTTL_TESTS_DIRECTORY)-sequential.$(params.REPORTING_TYPE),$(tasks.generate-ids.results.url)/$(params.KUTTL_TESTS_DIRECTORY)-parallel.$(params.REPORTING_TYPE)
+        - name: MSG_ID
+          value: $(params.MSG_ID)
+        - name: LAYERED_VERSION
+          value: $(params.OPERATOR_VERSION)
+        - name: OCP_VERSION
+          value: $(params.OPENSHIFT_VERSION)
+        - name: EXTERNAL_BUILD_URL
+          value: $(params.EXTERNAL_BUILD_URL)
+        - name: EXTERNAL_BUILD_ID
+          value: $(params.EXTERNAL_BUILD_ID)
+        - name: TEST_COMPLETE_TOPIC
+          value: VirtualTopic.qe.ci.product-scenario.test.complete
+        - name: TEST_ERROR_TOPIC
+          value: VirtualTopic.qe.ci.product-scenario.test.error
+      workspaces:
+        - name: plumbing-git
+          workspace: git
+          subPath: plumbing-git
+      when:
+        - input: $(params.IS_INTEROP)
+          operator: in
+          values: ["True", "true"]
