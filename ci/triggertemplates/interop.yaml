@@ -1,0 +1,80 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: interop
+spec:
+  params:
+    - name: architecture
+    - name: external_build_index_url
+    - name: external_build_id
+    - name: msg_id
+    - name: layered_product_version
+    - name: ocp_build
+    - name: ocp_version
+    - name: flexy_template_version
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: acceptance-tests-interop-
+        annotations:
+          pipeline.openshift.io/started-by: el-interop
+      spec:
+        params:
+          - name: ARCH
+            value: $(tt.params.architecture)
+          - name: BOOTSTRAP_IMAGE
+            value: 'quay.io/praveen4g0/kuttl-tests:v1'
+          - name: CATALOG_SOURCE
+            value: redhat-operators
+          - name: CHANNEL
+            value: stable
+          - name: CLUSTER_NAME
+            value: interop
+          - name: EXTERNAL_BUILD_URL
+            value: $(tt.params.external_build_index_url)
+          - name: EXTERNAL_BUILD_ID
+            value: $(tt.params.external_build_id)
+          - name: IS_DISCONNECTED
+            value: 'false'
+          - name: INDEX
+            value: 'dummy'
+          - name: IS_INTEROP
+            value: "true"
+          - name: KEEP_CLUSTER
+            value: "false"  
+          - name: LAUNCHER_VARS
+            value: ''
+          - name: MSG_ID
+            value: $(tt.params.msg_id)
+          - name: OPENSHIFT_VERSION
+            value: dev-preview/$(tt.params.ocp_build)
+          - name: OPERATOR_ENVIRONMENT
+            value: prod
+          - name: OPERATOR_VERSION
+            value: $(tt.params.layered_product_version)
+          - name: KUTTL_TESTS_BRANCH
+            value: release-$(tt.params.layered_product_version)
+          - name: KUTTL_TESTS_DIRECTORY
+            value: gitops-operator
+          - name: TEMPLATE
+            value: >-
+              private-templates/functionality-testing/aos-$(tt.params.flexy_template_version)/ipi-on-aws/versioned-installer
+        pipelineRef:
+          name: acceptance-tests-interop
+        timeout: 3h
+        workspaces:
+          - name: flexy-secrets
+            secret: 
+              secretName: flexy
+          - name: install-dir
+            persistentVolumeClaim:
+              claimName: install-dir
+          - name: git
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteMany
+                resources:
+                  requests:
+                    storage: 200Mi

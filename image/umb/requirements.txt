@@ -1,0 +1,7 @@
+python-qpid-proton==0.34.0
+argparse
+pyyaml==5.4.1
+jsonpath-rw==1.4.0
+requests==2.25.1
+Flask
+gunicorn

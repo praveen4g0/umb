@@ -18,9 +18,17 @@ spec:
       description: Full cluster name (e.g. )
     - name: path
       description: Path for uploading all artifacts from given pipeline run.
+    - name: url
+      description: Full URL where all artifacts from given pipeline run will be uploaded.
   steps:
     - name: generate
       image: registry.access.redhat.com/ubi8/ubi-minimal
+      env:
+        - name: UPLOADER_HOST
+          valueFrom:
+            secretKeyRef:
+              name: uploader
+              key: uploader-host
       script: |
         #!/usr/bin/env bash
         set -e
@@ -34,3 +42,5 @@ spec:
           echo
         fi
         echo -n CI/${run_name}/${curr_ts} | tee $(results.path.path)
+        echo
+        echo -n ${UPLOADER_HOST}/CI/${run_name}/${curr_ts} | tee $(results.url.path)

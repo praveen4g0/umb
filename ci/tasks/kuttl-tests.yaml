@@ -22,13 +22,35 @@ spec:
   - name: RUN_AS
     description: Provide user privilege to runs tests with  (eg one of admin/non-admin)
     default: "admin"
+  - name: REPORTING_TYPE
+    type: string
+    description: Reporting artifacts format defaults to xml
+    default: xml
   - name: TEST_SUITE
     description: Provide type of E2E test suite you need to run (eg sequential|parallel|all)
     default: "all"
+  - name: UPLOAD_PATH
+    description: Path for uploading test artifacts  
   steps:
     - name: run-kuttl-e2e-tests
       image: $(params.IMAGE)
       workingDir: $(workspaces.kuttl-tests-git.path)
+      env:
+      - name: UPLOADER_HOST
+        valueFrom:
+          secretKeyRef:
+            name: uploader
+            key: uploader-host
+      - name: UPLOADER_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: uploader
+            key: uploader-username
+      - name: UPLOADER_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: uploader
+            key: uploader-password
       script: |
         #!/usr/bin/env bash
         set -u -o pipefail
@@ -42,19 +64,39 @@ spec:
             oc login -u user$RANDOM -p user$RANDOM $(cat $(workspaces.install-dir.path)/$(params.CLUSTER_NAME)/auth/api-url) --insecure-skip-tls-verify=true 
         fi
 
+        clean() {
+          echo "Uploading test results..."
+          upload $(params.DIRECTORY)/results/$(params.TEST_SUITE)-results-$timestamp.$(params.REPORTING_TYPE) $(params.DIRECTORY)-$(params.TEST_SUITE).$(params.REPORTING_TYPE) 
+          upload $(params.DIRECTORY)/results/$(params.TEST_SUITE)-results-$timestamp.log $(params.DIRECTORY)-$(params.TEST_SUITE).log
+        }
+        trap clean EXIT
+
         export KUBECONFIG=$HOME/.kube/config
+        timestamp=$(date "+%Y.%m.%d-%H.%M.%S")
         
         case "$(params.TEST_SUITE)" in
         "parallel")
-          make -C $(params.DIRECTORY) e2e-tests-parallel
+          make -C $(params.DIRECTORY) e2e-tests-parallel report=$(params.REPORTING_TYPE) current_time=$timestamp
           ;;
         "sequential")
-          make -C $(params.DIRECTORY) e2e-tests-sequential
+          make -C $(params.DIRECTORY) e2e-tests-sequential report=$(params.REPORTING_TYPE) current_time=$timestamp
           ;;
         "all")
-          make -C $(params.DIRECTORY) e2e-tests
+          make -C $(params.DIRECTORY) e2e-tests report=$(params.REPORTING_TYPE) current_time=$timestamp
           ;;
         *)
           echo "USAGE: $0 (parallel|sequential|all)" >&2
           exit 1
         esac
+
+        # By default it will upload the file as specified in first param to "$UPLOAD_PATH/basename of $1".
+        # If you specify the second param, it will upload the file to the destination specified in there.
+        function upload() {
+          dest=${2:-$(basename $1)}
+          curl -f -k -s -u ${UPLOADER_USERNAME}:${UPLOADER_PASSWORD} \
+            -F path=$(params.UPLOAD_PATH)/${dest} \
+            -F file=@${1} \
+            ${UPLOADER_HOST}/upload
+          # print new line
+          echo
+        }

@@ -1,0 +1,54 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: send-interop-notification
+spec:
+  params:
+    - name: ARTIFACTS
+    - name: MSG_ID
+      description: interop message id
+    - name: OPERATOR_VERSION
+      description: verion of the openshift pipelines operator
+    - name: OCP_VERSION
+    - name: EXTERNAL_BUILD_URL
+    - name: EXTERNAL_BUILD_ID
+    - name: TEST_COMPLETE_TOPIC
+    - name: TEST_ERROR_TOPIC
+  steps:
+    - name: send-interop-notification
+      env:
+        - name: UMB_WEBHOOK_URL
+          value: >-
+            http://umb-producer-pipelines-ci.apps.cicd.ospqa.com/produce
+        - name: PIPELINERUN
+          valueFrom:
+            fieldRef:
+              fieldPath: 'metadata.labels[''tekton.dev/pipelineRun'']'
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LOG_URL
+          value: openshift
+        - name: MSG_ID
+          value: $(params.MSG_ID)
+        - name: LAYERED_VERSION
+          value: $(params.OPERATOR_VERSION)
+        - name: OPENSHIFT_VERSION
+          value: $(params.OCP_VERSION)
+        - name: OPENSHIFT_BUILD_URL
+          value: $(params.EXTERNAL_BUILD_URL)
+        - name: OPENSHIFT_BUILD_ID
+          value: $(params.EXTERNAL_BUILD_ID)
+        - name: XUNIT_URLS
+          value: $(params.ARTIFACTS)
+        - name: TEST_COMPLETE_TOPIC
+          value: $(params.TEST_COMPLETE_TOPIC)
+        - name: TEST_ERROR_TOPIC
+          value: $(params.TEST_ERROR_TOPIC)
+      image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      workingDir: $(workspaces.plumbing-git.path)/umb-service/send-report
+      command: ["python"]
+      args: ["send-interop-notification.py"]
+  workspaces:
+    - name: plumbing-git
